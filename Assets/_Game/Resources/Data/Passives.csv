@@ -1,0 +1,15 @@
+Id,Name,Stat,ValuePerLevel,MaxLevel,Description,Weight
+might,Weighted Pips,Might,0.1,5,+10% damage per level,10
+area,Big Table,Area,0.1,5,+10% area per level,8
+cooldown,Quick Hands,Cooldown,0.08,5,-8% weapon cooldown per level,8
+projcount,Extra Dice,ProjectileCount,1,2,+1 projectile per level,5
+projspeed,Fast Throw,ProjectileSpeed,0.1,5,+10% projectile speed per level,7
+duration,Long Odds,Duration,0.1,5,+10% duration per level,7
+maxhp,Thick Felt,MaxHP,20,5,+20 max HP per level,8
+armor,Chip Armor,Armor,1,5,-1 damage taken per hit per level,7
+regen,House Comp,Regen,0.4,5,+0.4 HP per second per level,7
+speed,Quick Step,MoveSpeed,0.08,5,+8% move speed per level,7
+magnet,Magnet Ring,PickupRadius,0.25,5,+25% pickup radius per level,6
+luck,Lucky Charm,Luck,0.05,5,+5% crit chance per level,7
+growth,Study Notes,Growth,0.08,5,+8% XP per level,6
+greed,Gilded Pips,Greed,0.1,5,+10% gold per level,6

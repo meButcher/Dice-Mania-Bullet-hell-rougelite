@@ -1,0 +1,11 @@
+Id,Name,Stat,ValuePerLevel,MaxLevel,BaseCost,CostGrowth,Description
+m_might,Power,Might,0.05,5,30,1.5,+5% damage per level
+m_hp,Vitality,MaxHP,10,5,25,1.5,+10 max HP per level
+m_armor,Plating,Armor,1,3,40,1.8,+1 armor per level
+m_speed,Footwork,MoveSpeed,0.03,5,25,1.5,+3% move speed per level
+m_luck,Fortune,Luck,0.02,5,30,1.5,+2% crit chance per level
+m_greed,Greed,Greed,0.1,5,20,1.5,+10% gold per level
+m_growth,Learning,Growth,0.05,5,25,1.5,+5% XP per level
+m_rolls,Extra Roll,RollCharges,1,2,80,2.5,+1 roll charge per wave per level
+m_revival,Revival,Revival,1,1,200,1,Revive once per run
+m_magnet,Reach,PickupRadius,0.1,5,20,1.5,+10% pickup radius per level

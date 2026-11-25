@@ -1,0 +1,18 @@
+Id,Name,Stat,Value,Cost,Description
+loadeddie,Loaded Die,FacePower,0.25,40,+25% power on all dice faces
+lucky7,Lucky Seven,Luck,0.07,35,+7% crit chance
+feltgloves,Felt Gloves,Cooldown,0.1,40,-10% weapon cooldown
+spikedfelt,Spiked Felt,Thorns,10,30,Enemies that touch you take 10 damage
+secondchance,Second Chance,Revival,1,90,Revive once with half HP
+piggybank,Piggy Bank,Interest,0.05,35,+5% interest on gold between waves
+sparedie,Spare Die,RollCharges,1,45,+1 roll charge per wave
+shakercup,Shaker Cup,RollRecharge,0.3,40,Roll charges recharge 30% faster
+echochamber,Echo Chamber,DoublesChance,0.15,60,15% chance a rolled face triggers twice
+goldentooth,Golden Tooth,Greed,0.25,30,+25% gold
+chipvest,Poker Chip Vest,Armor,2,40,-2 damage taken per hit
+hearttoken,Heart Token,MaxHP,30,35,+30 max HP
+runningshoes,Running Shoes,MoveSpeed,0.12,30,+12% move speed
+heavypips,Heavy Pips,Might,0.15,45,+15% damage
+widetable,Wide Table,Area,0.15,45,+15% area
+cheatsheet,Cheat Sheet,Growth,0.2,30,+20% XP
+longfuse,Long Fuse,Duration,0.2,35,+20% duration on weapons and faces

@@ -1,0 +1,52 @@
+Key,Value,Notes
+FinalWave,15,Wave number that wins the run (endless continues after)
+ArenaHalfSize,55,Half width of the square arena in world units
+PlayerRadius,0.5,Player collision radius
+PlayerInvulnTime,0.6,Seconds of invulnerability after being hit
+CritMultiplier,2,Damage multiplier on critical hits (crit chance = Luck)
+RollCooldown,0.5,Seconds between dice rolls
+RollRechargeSeconds,25,Seconds to regain one roll charge during a wave (0 = off)
+RollAnimSeconds,0.45,Dice tumble animation time (real seconds)
+DoublesPowerMult,1.75,Power multiplier when 2 dice show the same face
+TriplesPowerMult,3,Power multiplier when 3 dice show the same face
+TriplesBonusRolls,1,Roll charges refunded on Triples
+StraightBonusRolls,1,Roll charges gained when 3 consecutive rolls go up by one pip (e.g. 2-3-4)
+SnakeEyesLevelBonus,2,Extra face levels when two dice both land on pip 1
+SnakeEyesHpCost,0.15,Fraction of max HP lost on Snake Eyes
+XpBase,6,XP needed for level 2
+XpGrowth,5,Extra XP needed per level
+XpQuadratic,0.5,Quadratic XP growth per level
+LevelUpChoices,3,Number of upgrade cards offered on level up
+LevelUpRerollRollCost,1,Roll charges spent to reroll the level up cards
+MaxWeapons,6,Max auto weapons owned
+MaxPassives,6,Max passive items owned
+MaxDice,3,Max dice owned
+MagnetSpeed,24,Speed of magnetized pickups
+HealPickupChance,0.004,Chance an enemy drops a heal orb
+HealPickupAmount,20,HP restored by a heal orb
+ChestGold,20,Gold in an elite's chest (chest also grants a free upgrade)
+WaveClearGold,12,Gold for clearing a wave
+WaveClearGoldPerWave,4,Extra wave clear gold per wave number
+InterestRate,0.1,Gold interest earned on unspent gold between waves
+InterestCap,10,Max interest per wave
+ShopSlots,5,Offers in the Dice Forge
+ShopRerollBaseCost,4,Gold to reroll the Forge
+ShopRerollCostGrowth,2,Extra gold per reroll in the same Forge visit
+SpawnRadiusMin,19,Min spawn distance from player
+SpawnRadiusMax,25,Max spawn distance from player
+MaxEnemies,900,Hard cap on living enemies
+EnemyBulletLife,6,Seconds before enemy bullets expire
+EliteHpMult,4,Elite HP multiplier
+EliteSizeMult,1.45,Elite size multiplier
+EliteDamageMult,1.5,Elite damage multiplier
+EndlessHpGrowth,0.25,Extra enemy HP multiplier per wave after the final wave
+CopyAimTimeScale,0.3,Time scale while holding to aim a Copy shot
+CopyShotTimeScale,0.12,Time scale during the Copy shot flight
+CopyShotSpeed,28,Copy shot speed (world units per scaled second)
+CopyEliteLevel,3,Copy face level needed to copy elites
+CopyBossLevel,5,Copy face level needed to copy bosses
+CopyFireCooldownMult,0.6,Fire cooldown multiplier for attacks used while copied
+CopyBulletSpeedMult,1.4,Bullet speed multiplier for attacks used while copied
+ChipsPerWave,4,Meta chips per wave cleared
+ChipsPerBoss,20,Meta chips per boss killed
+ChipsPerKill,0.05,Meta chips per kill

@@ -1,0 +1,9 @@
+Type,Weight,BaseCost,CostPerWave,MinWave,Description
+FaceUpgrade,10,12,2,1,+1 level to one of your dice faces
+NewFace,6,18,2,1,Buy a face and place it on any die slot
+LoadFace,5,10,1,1,Add +1 weight to a face slot (rolls it more often)
+WeaponUpgrade,4,15,2,1,+1 level to a random owned weapon
+Relic,6,0,3,2,A permanent run bonus (cost from Relics sheet + CostPerWave x wave)
+Heal,4,10,2,1,Restore 35% of max HP
+RollCharge,2,30,5,2,+1 roll charge per wave
+ExtraDie,1,60,10,3,Add another die (rolled together - combos!)

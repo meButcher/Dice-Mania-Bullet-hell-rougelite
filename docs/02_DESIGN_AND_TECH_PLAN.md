@@ -3,7 +3,10 @@
 A bullet-hell roguelite in the vein of Vampire Survivors, built around the dice of the original Dice Mania.
 Target: **Unity 6 (LTS)**, **Entities (ECS) + Burst + Jobs**, **Web** (WebGL2, WebGPU optional).
 
-> Status: **PLAN, awaiting owner sign-off.** Open questions are at the bottom.
+> Status: **Prototype M0–M8 implemented with basic shapes** (Unity 6000.6.2f1). Owner decisions (Nov 2026):
+> - Face 2 **Melee → Copy**: hold LMB to target an enemy, release to fire a slow-motion shot that consumes it; you become that enemy for 15 s (its attack, speed, body). Upgradable (duration, power, copy elites at Lv3, bosses at Lv5).
+> - All abilities / upgrades / enemies / stats live in editable CSV sheets the game reads (docs/03_DATA_SHEETS.md).
+> - Basic shapes only for now; visual pass later. Title stays "Dice Mania".
 
 ---
 
@@ -43,7 +46,7 @@ Run start (pick character + starting die)
 | # | Face | Effect (level I) | Scaling |
 |---|---|---|---|
 | 1 | **Bolt** | Burst of homing missiles at nearest enemies | +missiles, +damage |
-| 2 | **Slash** | 360° blade sweep, knockback | radius, damage, bleed |
+| 2 | **Copy** | Hold LMB to target, release: slow-mo shot consumes the enemy and you **become it for 15 s** (its bullets, speed, body slam). Same-type enemies stop shooting you | duration, power, elites (Lv3), bosses (Lv5) |
 | 3 | **Mend** | Heal-over-time ring, regen while standing in it | heal amount, ring size |
 | 4 | **Twin** | Spawn a clone that mirrors your auto-weapons for 8 s | duration, clone count |
 | 5 | **Devour** | Expanding dome that consumes enemies **and enemy bullets**, costs HP | radius, lower HP cost, lifesteal |

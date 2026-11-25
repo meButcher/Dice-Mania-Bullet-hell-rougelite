@@ -1,0 +1,12 @@
+Id,Name,Behaviour,Shape,Color,Size,HP,Speed,ContactDamage,Pattern,FireCooldown,BulletSpeed,BulletDamage,Range,PreferredRange,XP,GoldChance,Gold,Score,SplitInto,SplitCount,BossPatterns,CopyPattern,CopyDamageMult,CopyContactMult,CopySpeedMult,CopyArmor
+grunt,Grunt,Chaser,Sphere,#FF2E3A,1,10,3.2,8,aimed,2.4,9,6,14,0,1,0.06,1,10,,0,,aimed,3,1,1,1
+rusher,Rusher,Rusher,Sphere,#FF7A2E,0.85,8,5,10,none,0,0,0,0,0,1,0.05,1,10,,0,,none,1,4,1.5,1
+gunner,Gunner,Keeper,Cube,#FF2E7A,1.1,16,2.6,6,spread3,2.6,8,6,16,9,2,0.1,1,20,,0,,spread5,2.5,1,1,1
+swarmer,Swarmer,Swarm,Sphere,#FF5050,0.55,3,4.6,5,none,0,0,0,0,0,1,0.02,1,3,,0,,none,1,2,1.6,0
+spinner,Spinner,Turret,Cube,#C23EFF,1.3,30,1.2,8,spiral,0.16,6,5,18,11,4,0.2,2,40,,0,,spiral2,2,1,1,2
+splitter,Splitter,Chaser,Diamond,#FF8AD8,1.4,24,2.4,10,none,0,0,0,0,0,3,0.15,1,25,swarmer,3,,ring8,2,2,1.1,1
+brute,Brute,Chaser,Cube,#B3122A,1.9,90,1.6,18,ring8,3.5,6,8,12,0,6,0.4,3,60,,0,,ring16,2,3,0.9,4
+sniper,Sniper,Keeper,Diamond,#FF3E3E,1,14,2.2,6,snipe,3.2,12,12,24,16,3,0.15,1,30,,0,,snipe,4,1,1,1
+croupier,The Croupier,Boss,Cube,#FF3EB4,4,1800,1.8,25,spiral,0.16,7,8,30,9,60,1,25,1000,,0,spiral:5|ring16:4|summon_swarmer:3|spread5:4,ring16,3,3,1,5
+snakeeyes,Snake Eyes,Boss,Sphere,#FF1E1E,4.5,4200,2.2,30,burst5,1.2,9,10,30,8,120,1,40,2500,,0,burst5:4|spiral2:5|summon_rusher:3|ring24:4,spiral2,3,3,1,6
+thehouse,The House,Boss,Cube,#FFD23E,5.5,9000,1.4,35,ring24,1.6,8,12,32,9,250,1,80,6000,,0,ring24:4|spiral3:5|spread7:4|summon_gunner:3|random:4,spiral3,3,3,1,8
