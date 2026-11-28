@@ -57,7 +57,29 @@ namespace DiceMania.ECS
         public byte CopyMiss;
         public int CopyHitDef;
         public byte CopyHitElite;
-        public float ShakeRequest;
+        public float ShakeRequest;  // camera trauma (big, slow shake)
+
+        // ---- Feel requests (max or sum per frame, applied by the GameDirector / camera / UI) ----
+        public float HitStop;       // seconds of global freeze requested (largest wins)
+        public byte HitStopForce;   // 1 = ignore the hit-stop cooldown (getting hurt, boss kills)
+        public float2 Kick;         // camera kick, summed shot directions (camera moves opposite)
+        public float Vibe;          // short high-frequency camera vibration (gunshots)
+        public float Rumble;        // gamepad rumble strength
+        public float ScreenFlash;   // white full-screen flash alpha
+        public float Punch;         // camera punch-in (zoom) amount
+        public byte BurstLines;     // anime burst lines
+        public float Hurt;          // red vignette strength
+    }
+
+    /// <summary>Feel tuning from Config.csv (see docs/04_GAME_FEEL.md).</summary>
+    public struct Feel : IComponentData
+    {
+        public float HitStopHurt, HitStopKill, HitStopElite, HitStopBoss;
+        public float CorpseFreeze, CorpseThrow;
+        public float SplatLife, ShellLife;
+        public float Recoil;        // global multiplier on hero push-back
+        public float Kick;          // global multiplier on camera kick
+        public float Shake;         // global multiplier on screen shake / vibration
     }
 
     public struct Prefabs : IComponentData
@@ -72,7 +94,7 @@ namespace DiceMania.ECS
         public Entity Clone;
     }
 
-    public static class NumKind { public const byte Normal = 0, Crit = 1, PlayerHurt = 2, Heal = 3; }
+    public static class NumKind { public const byte Normal = 0, Crit = 1, PlayerHurt = 2, Heal = 3, Kill = 4, KillCrit = 5; }
 
     public struct DamageNumber : IBufferElementData { public float2 Pos; public float Amount; public byte Kind; }
 
@@ -80,7 +102,8 @@ namespace DiceMania.ECS
 
     public static class Sfx
     {
-        public const byte Shoot = 0, Hit = 1, Kill = 2, Hurt = 3, Pickup = 4, Explode = 5, EnemyShoot = 6, Copy = 7;
+        public const byte Shoot = 0, Hit = 1, Kill = 2, Hurt = 3, Pickup = 4, Explode = 5, EnemyShoot = 6, Copy = 7,
+            Shell = 8, Crit = 9, Heavy = 10, Shatter = 11, Chest = 12, BigKill = 13;
     }
 
     public struct SfxEvent : IBufferElementData { public byte Id; }

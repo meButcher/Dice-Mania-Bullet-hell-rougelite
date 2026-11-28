@@ -14,12 +14,22 @@ namespace DiceMania.ECS
     public struct Visual : IComponentData
     {
         public byte Mesh;       // ShapeId
+        public byte Fx;         // VisualFx flags: extra glow instances drawn with this entity
         public float3 Scale;
         public float Y;         // height above ground
         public float RotY;      // radians
         public float Spin;      // radians / second
         public float4 Color;    // opaque: rgb + emission in a; additive meshes: rgb * a
-        public float Flash;     // 0..1 white hit flash
+        public float Flash;     // 0..1 white hit flash (1 = pure white silhouette)
+        public float SquashAmp; // jelly wobble amplitude, set on hits (0 = none)
+        public float SquashT;   // seconds since the wobble started
+        public float Heading;   // radians (same convention as RotY): direction of travel, used by trails
+        public float TrailLen;  // world units of glowing tail drawn behind (VisualFx.Trail)
+    }
+
+    public static class VisualFx
+    {
+        public const byte Trail = 1, Halo = 2;
     }
 
     // ------------------------------------------------------------------
@@ -35,6 +45,14 @@ namespace DiceMania.ECS
         public float2 AimPoint;    // world point under the mouse
         public float InvulnTimer;
         public float4 BaseColor;
+        public float2 Recoil;      // velocity impulse from shooting / getting hit, decays quickly
+    }
+
+    /// <summary>The little gun the hero carries: aims at the target, kicks back and flashes on every shot.</summary>
+    public struct PlayerGun : IComponentData
+    {
+        public float2 Dir;
+        public float Kick;          // 1 right after a shot, decays to 0
     }
 
     public struct Health : IComponentData { public float Value; public float Max; }
@@ -72,6 +90,10 @@ namespace DiceMania.ECS
         public float4 Color;
         public byte Evolved;
         public float Angle;
+        public float Recoil;        // hero push-back speed per volley
+        public float Kick;          // camera kick per volley
+        public float Shake;         // screen vibration per volley
+        public byte Shell;          // 0 none, 1 small casing, 2 big casing
     }
 
     // ------------------------------------------------------------------
@@ -180,6 +202,13 @@ namespace DiceMania.ECS
         public float Lifesteal;
         public float Knockback;
         public float4 Color;
+        public byte Vfx;            // ZoneVfx: effect spawned by CombatSystem when the zone goes off
+        public byte VfxState;       // 0 = nothing yet, 1 = pre-effect running (meteor falling), 2 = done
+    }
+
+    public static class ZoneVfx
+    {
+        public const byte None = 0, Explosion = 1, Meteor = 2, Frost = 3, Devour = 4, Mend = 5, Aegis = 6;
     }
 
     public struct Orbiter : IComponentData { public float Angle; public float Distance; public float AngularSpeed; }
@@ -197,7 +226,42 @@ namespace DiceMania.ECS
 
     public struct Pickup : IComponentData { public byte Kind; public float Value; public byte Magnet; }
 
-    public struct Particle : IComponentData { public float Life; public float MaxLife; public float Drag; public float StartScale; }
+    /// <summary>Behaviour flags for <see cref="Particle"/>.</summary>
+    public static class PFlags
+    {
+        public const ushort
+            Shrink = 1,         // scale -> 0 over the whole life
+            ShrinkLate = 2,     // keep full size, shrink during the last 0.4 s
+            Streak = 4,         // face the velocity and stretch with speed (sparks)
+            PopIn = 8,          // grow from 0 with a little overshoot when it starts moving
+            PopOut = 16,        // burst into cubes of its colour when it dies (corpses, ice spikes)
+            Grow = 32,          // scale eases from 1x to GrowTo x over the life (shockwaves, mist)
+            Fade = 64,          // alpha fades out with life (additive meshes)
+            Land = 128,         // stops dead when it lands (droplets, embers)
+            Hidden = 256,       // invisible while frozen (delayed spawns)
+            Clink = 512,        // plays the shell "ping" when it bounces hard
+            Ice = 1024;         // plays the shatter sound when it pops
+    }
+
+    /// <summary>
+    /// Every short-lived visual: sparks, debris, shells, splats, flashes, shockwaves, thrown corpses, ice spikes.
+    /// Height lives in Visual.Y; Vel is the ground-plane velocity, VelY the vertical one.
+    /// </summary>
+    public struct Particle : IComponentData
+    {
+        public float Life;
+        public float MaxLife;
+        public float Drag;
+        public float3 BaseScale;
+        public float VelY;
+        public float Gravity;
+        public float Bounce;        // fraction of vertical speed kept when it hits the floor
+        public float Freeze;        // seconds held still (white) before moving: the kill "beat" or a spawn delay
+        public float Age;           // seconds since it started moving
+        public float GrowTo;
+        public float Alpha0;
+        public ushort Flags;        // PFlags
+    }
 
     /// <summary>Tag for static arena props (ground stones, fires, walls).</summary>
     public struct Decor : IComponentData { }

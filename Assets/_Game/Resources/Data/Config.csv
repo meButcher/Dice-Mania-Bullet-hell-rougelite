@@ -50,3 +50,17 @@ CopyBulletSpeedMult,1.4,Bullet speed multiplier for attacks used while copied
 ChipsPerWave,4,Meta chips per wave cleared
 ChipsPerBoss,20,Meta chips per boss killed
 ChipsPerKill,0.05,Meta chips per kill
+HitStopHurt,0.08,Freeze frames when the player gets hit (seconds)
+HitStopKill,0.02,Tiny freeze on a kill (skipped during hordes and rate-limited by HitStopCooldown)
+HitStopElite,0.06,Freeze when an elite dies
+HitStopBoss,0.35,Freeze when a boss dies
+HitStopCooldown,0.3,Minimum seconds between small freezes so hordes never stutter
+CorpseFreeze,0.07,Seconds a killed enemy hangs as a white silhouette before it is thrown
+CorpseThrow,13,Speed a killed enemy is thrown along the killing hit
+SplatLife,14,Seconds blood splats and scorch marks stay on the floor
+ShellLife,8,Seconds ejected bullet shells stay on the floor
+ScreenShake,1,Screen shake / vibration multiplier (0 = off; players can also turn it off in Pause)
+CameraKick,1,Camera kick on shots multiplier (0 = off)
+Recoil,1,Hero push-back on shots multiplier (0 = off)
+Rumble,1,Gamepad rumble multiplier (0 = off)
+DamageNumbers,1,Show damage numbers (0 = off)

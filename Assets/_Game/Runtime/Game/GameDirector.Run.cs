@@ -91,6 +91,15 @@ namespace DiceMania.Game
                     ShowBanner("BOSS: " + bd.Name.ToUpper(), new Color(1f, 0.3f, 0.6f), 3f);
                     Audio.Play(SfxPlayer.Id.Boss);
                     Rig.Shake(0.6f);
+                    Rig.Punch(0.15f);
+                    var bc = new float4(bd.Color.r, bd.Color.g, bd.Color.b, 1f);
+                    float bsize = bd.Size;
+                    Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+                    {
+                        Fx.Shockwave(ecb, pf, bp, 0.2f, bsize * 0.5f, bsize * 4f, bc, 0.7f);
+                        Fx.Glow(ecb, pf, bp, 1f, bsize * 3f, bc, 0.4f);
+                        Fx.Splat(ecb, pf, bp, bsize * 1.6f, new float4(0.05f, 0.03f, 0.05f, 0.1f), 20f, ref r);
+                    });
                 }
             }
             else ShowBanner("WAVE " + wave, Color.white, 2f);
@@ -216,6 +225,7 @@ namespace DiceMania.Game
             {
                 BossAlive = false;
                 ShowBanner("BOSS DEFEATED!", new Color(1f, 0.85f, 0.3f), 3f);
+                SlowMo(0.3f, 1.4f);   // after the freeze, let the finish breathe
                 WaveCleared();
             }
         }
@@ -269,18 +279,55 @@ namespace DiceMania.Game
                 Ecs.Em.DestroyEntity(Ecs.Em.CreateEntityQuery(typeof(EnemyShot)));
                 ShowBanner("SECOND CHANCE!", new Color(1f, 0.9f, 0.4f), 2f);
                 Rig.Shake(0.7f);
+                Flash(0.5f);
+                var rp = Ecs.PlayerPos;
+                Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+                {
+                    Fx.Shockwave(ecb, pf, rp, 0.3f, 0.5f, 12f, new float4(1f, 0.85f, 0.4f, 1f), 0.6f);
+                    Fx.Sparkles(ecb, pf, rp, 20, 1.5f, new float4(1f, 0.85f, 0.4f, 1f), ref r);
+                });
                 return;
             }
             var p = Ecs.PlayerPos;
             var vis = Ecs.Em.GetComponentData<Visual>(Ecs.Player);
-            Ecs.Burst(p, 40, new float4(0.25f, 0.6f, 1f, 0.8f), 14f, 0.55f, 1.6f);
+            var blue = new float4(0.25f, 0.6f, 1f, 0.8f);
+            // Shatter into blue chunks (the original's death), with a freeze, flash and punch-in.
+            Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+            {
+                SpawnUtil.Burst(ecb, pf, p, 40, blue, 14f, 0.55f, 1.6f, ref r);
+                Fx.Debris(ecb, pf, p, 0.6f, 24, blue, 10f, 0.35f, 2f, ref r, (byte)ShapeId.Diamond);
+                Fx.Shockwave(ecb, pf, p, 0.3f, 0.5f, 10f, new float4(0.4f, 0.7f, 1f, 1f), 0.8f);
+                Fx.Glow(ecb, pf, p, 0.8f, 8f, new float4(0.6f, 0.8f, 1f, 1f), 0.4f);
+            });
             vis.Scale = 0f;
             Ecs.Em.SetComponentData(Ecs.Player, vis);
+            Ecs.HideGun();
             CancelCopyAim();
             Rig.Shake(1f);
+            Rig.Punch(0.3f);
+            Flash(0.45f);
+            RequestHitStop(0.2f, true);
+            Rumble.Pulse(1f, 0.5f);
             Audio.Play(SfxPlayer.Id.Hurt);
-            dyingTimer = 1.6f;
+            dyingTimer = 1.8f;
             SetState(GameState.Dying);
+        }
+
+        /// <summary>Test hook: clear the field and jump straight to a wave (e.g. a boss wave).</summary>
+        public void DebugStartWave(int wave)
+        {
+            if (Run == null) return;
+            Ecs.KillAllEnemies(false);
+            CancelCopyAim();
+            StartWave(wave);
+        }
+
+        /// <summary>Test hook: kill the player right now (revivals still apply).</summary>
+        public void DebugKillPlayer()
+        {
+            if (State != GameState.Playing || Ecs.Player == Unity.Entities.Entity.Null) return;
+            var h = Ecs.PlayerHealth; h.Value = 0f; Ecs.SetPlayerHealth(h);
+            OnPlayerDied();
         }
 
         void EndRun(bool won)

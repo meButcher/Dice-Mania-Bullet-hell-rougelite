@@ -19,12 +19,16 @@ namespace DiceMania.Game
         public List<string> UnlockedCharacters = new List<string>();
         public List<string> UnlockedFaces = new List<string>();
         public bool SfxOn = true;
+        public bool MusicOn = true;
+        public bool ShakeOn = true;
+        public bool RumbleOn = true;
         public bool SeenTutorial;
     }
 
     public static class MetaProgress
     {
-        const string Key = "dicemania_save_v1";
+        /// <summary>PlayerPrefs key. Automated tests switch it so they never touch the player's real save.</summary>
+        public static string Key = "dicemania_save_v1";
         public static MetaSave Data = new MetaSave();
 
         public static void Load()

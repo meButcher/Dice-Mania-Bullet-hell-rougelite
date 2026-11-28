@@ -17,8 +17,12 @@ namespace DiceMania.Data
     public enum PatternType { None = 0, Aimed = 1, Spread = 2, Ring = 3, Spiral = 4, Random = 5, Summon = 6 }
     public enum ShopType { FaceUpgrade, NewFace, LoadFace, WeaponUpgrade, Relic, Heal, RollCharge, ExtraDie }
 
-    /// <summary>Mesh ids used by the instanced renderer. Keep in sync with MeshFactory.</summary>
-    public enum ShapeId : byte { Sphere = 0, Cube = 1, Diamond = 2, Disc = 3, Ring = 4 }
+    /// <summary>
+    /// Mesh ids used by the instanced renderer. Keep in sync with RenderAssets.Init.
+    /// Glow = soft additive blob (flashes, halos, mist), Streak = soft additive line (trails, sparks, cracks),
+    /// Splat = opaque floor blob (blood, scorch marks).
+    /// </summary>
+    public enum ShapeId : byte { Sphere = 0, Cube = 1, Diamond = 2, Disc = 3, Ring = 4, Glow = 5, Streak = 6, Splat = 7 }
 
     public static class Lvl
     {
@@ -66,6 +70,9 @@ namespace DiceMania.Data
         public int MaxLevel, Weight;
         public float Damage, DamagePerLevel, Cooldown, CooldownReductionPerLevel, Count, CountPerLevel, Speed,
             Pierce, PiercePerLevel, Area, AreaPerLevel, Life, Knockback;
+        // Feel: how hard the shot pushes the hero back, kicks the camera, shakes the screen, and which shell it ejects.
+        public float Recoil, Kick, Shake;
+        public int Shell;
         public Color Color;
         public bool IsEvolution => !string.IsNullOrEmpty(EvolvesFrom);
     }

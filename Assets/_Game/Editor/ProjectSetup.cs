@@ -47,8 +47,28 @@ namespace DiceMania.EditorTools
             PlayerSettings.SetManagedStrippingLevel(NamedBuildTarget.WebGL, ManagedStrippingLevel.Minimal);
             PlayerSettings.stripEngineCode = true;
 
+            // Everything is drawn with Graphics.RenderMeshInstanced from materials created in code, so no material asset
+            // "uses" GPU instancing and the default "Strip Unused" would remove the instancing variants from builds
+            // (= an empty world in the player). Keep them all.
+            KeepInstancingVariants();
+
             AssetDatabase.SaveAssets();
             Debug.Log("[DiceMania] Project setup complete. Press Play in " + ScenePath + " (or any scene).");
+        }
+
+        /// <summary>Graphics settings: Instancing Variants = Keep All (0 = strip unused, 1 = strip all, 2 = keep all).</summary>
+        public static void KeepInstancingVariants()
+        {
+            var assets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset");
+            if (assets == null || assets.Length == 0) return;
+            var so = new SerializedObject(assets[0]);
+            var prop = so.FindProperty("m_InstancingStripping");
+            if (prop != null && prop.intValue != 2)
+            {
+                prop.intValue = 2;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                Debug.Log("[DiceMania] Graphics settings: instancing variants set to Keep All.");
+            }
         }
     }
 }

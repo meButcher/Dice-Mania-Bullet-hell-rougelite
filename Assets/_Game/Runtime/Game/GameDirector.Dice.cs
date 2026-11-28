@@ -71,6 +71,16 @@ namespace DiceMania.Game
             pendingRoll = DiceLogic.Roll(Run.Dice, rng, Run.PipHistory, cfg);
             RollAnimTime = GameDatabase.Cfg("RollAnimSeconds", 0.45f);
             Audio.Play(SfxPlayer.Id.Roll, 0.1f);
+            RollPunch = 1f;
+
+            // Anticipation: pull energy out of the air into the hero while the dice tumble ("charge" before the cast).
+            float2 pp = Ecs.PlayerPos;
+            float t = RollAnimTime;
+            Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+            {
+                Fx.Converge(ecb, pf, pp, 4.5f, 16, t, new float4(0.85f, 0.9f, 1f, 0.9f), ref r);
+                Fx.Glow(ecb, pf, pp, 0.6f, 1.6f, new float4(0.8f, 0.85f, 1f, 0.5f), t, 2.2f);
+            });
         }
 
         void ApplyRoll(RollOutcome o)
@@ -78,6 +88,26 @@ namespace DiceMania.Game
             LastRoll = o;
             RollShowTime = 2.5f;
             Run.RollsLeft += o.BonusRolls;
+            RollPunch = 1f;
+
+            // Burst: the charge releases in the colour of every rolled face.
+            float2 pp = Ecs.PlayerPos;
+            var colors = new List<float4>();
+            foreach (var a in o.Activations) colors.Add(F4(a.Face.Color, 1f));
+            bool combo = o.Doubles || o.Triples || o.SnakeEyes || o.Straight;
+            Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+            {
+                for (int i = 0; i < colors.Count; i++)
+                {
+                    var c = colors[i];
+                    Fx.Shockwave(ecb, pf, pp, 0.2f + i * 0.05f, 0.5f, combo ? 8f : 5.5f, c, 0.4f + i * 0.08f);
+                    Fx.Sparks(ecb, pf, pp, 0.7f, new float2(1f, 0f), 360f, 10, 8f, 16f, 0.45f, c, 0.35f, ref r);
+                }
+                Fx.Glow(ecb, pf, pp, 0.7f, combo ? 6f : 3.5f, colors.Count > 0 ? colors[0] : new float4(1f), 0.18f);
+            });
+            Rig.Punch(combo ? 0.14f : 0.06f);
+            Rig.Shake(combo ? 0.3f : 0.12f);
+            if (combo) { Flash(0.25f); Rumble.Pulse(0.5f, 0.15f); }
 
             if (o.SnakeEyes)
             {
@@ -86,10 +116,7 @@ namespace DiceMania.Game
                 Ecs.SetPlayerHealth(h);
             }
             if (!string.IsNullOrEmpty(o.ComboText))
-            {
                 ShowBanner(o.ComboText, new Color(1f, 0.85f, 0.25f), 1.6f);
-                Rig.Shake(0.25f);
-            }
 
             foreach (var a in o.Activations)
             {
@@ -106,6 +133,13 @@ namespace DiceMania.Game
         // ================================================================== faces
 
         static float4 F4(Color c, float a) => new float4(c.r, c.g, c.b, a);
+
+        /// <summary>Test / debug hook: fire a face's effect as if it was rolled.</summary>
+        public void DebugActivateFace(string faceId, int level = 3)
+        {
+            var f = GameDatabase.Face(faceId);
+            if (f != null && Run != null && Ecs.Player != Entity.Null) ActivateFace(f, level, 1f, false);
+        }
 
         void ActivateFace(FaceDef f, int level, float power, bool jackpot)
         {
@@ -128,11 +162,11 @@ namespace DiceMania.Game
                     {
                         float a = i * 360f / n + UnityEngine.Random.Range(-10f, 10f);
                         float2 d = SpawnUtil.Dir(a);
-                        Ecs.SpawnPlayerShot(pp, d, new Projectile
+                        Ecs.SpawnPlayerShot(pp + d * 0.6f, d, new Projectile
                         {
                             Kind = ProjKind.Normal, Damage = dmg, Life = 3f, Pierce = jackpot ? 2 : 0, Knockback = 1f,
                             Speed = 15f * Run.ProjectileSpeed, Homing = 1, TurnRate = 7f,
-                        }, ShapeId.Diamond, 0.5f, F4(f.Color, 0.9f));
+                        }, ShapeId.Diamond, 0.5f, F4(f.Color, 0.9f), halo: true);
                     }
                     Audio.Play(SfxPlayer.Id.Shoot, 0.01f);
                     break;
@@ -142,6 +176,9 @@ namespace DiceMania.Game
                     Run.CopyCharges += Mathf.Max(1, count);
                     Run.CopyLevel = Mathf.Max(Run.CopyLevel, level);
                     ShowBanner("COPY READY - hold LMB on an enemy", f.Color, 2f);
+                    var cc = F4(f.Color, 1f);
+                    Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+                        Fx.Sparkles(ecb, pf, pp, 10, 1f, cc, ref r));
                     break;
                 }
                 case "mend":
@@ -149,7 +186,7 @@ namespace DiceMania.Game
                     Ecs.SpawnZone(pp, new DamageZone
                     {
                         Damage = value * 0.5f, Interval = 0.5f, Timer = 0.05f, Radius = radius, Life = dur, Follow = 1,
-                        Flags = ZoneFlags.Heal, Color = F4(f.Color, 0.35f),
+                        Flags = ZoneFlags.Heal, Color = F4(f.Color, 0.35f), Vfx = ZoneVfx.Mend,
                     });
                     Audio.Play(SfxPlayer.Id.LevelUp, 0.1f, 0.5f);
                     break;
@@ -157,8 +194,17 @@ namespace DiceMania.Game
                 case "twin":
                 {
                     int n = Mathf.Max(1, count);
+                    var cc = F4(Run.Character.Color, 0.9f);
                     for (int i = 0; i < n; i++)
-                        Ecs.SpawnClone(pp, dur, value, 0.45f, F4(Run.Character.Color, 0.6f), i * Mathf.PI * 2f / n);
+                    {
+                        float ang = i * Mathf.PI * 2f / n;
+                        Ecs.SpawnClone(pp, dur, value, 0.45f, F4(Run.Character.Color, 0.6f), ang);
+                    }
+                    Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+                    {
+                        Fx.Shockwave(ecb, pf, pp, 0.3f, 0.4f, 3f, cc, 0.3f);
+                        SpawnUtil.Burst(ecb, pf, pp, 10, cc, 6f, 0.25f, 0.5f, ref r);
+                    });
                     break;
                 }
                 case "devour":
@@ -170,7 +216,7 @@ namespace DiceMania.Game
                     {
                         Damage = value * Run.Might, Interval = 0.25f, Timer = 0.05f, Radius = 0.8f, MaxRadius = radius, GrowRate = radius * 2.2f,
                         Life = dur, Follow = 1, Flags = (byte)(ZoneFlags.Grow | ZoneFlags.ConsumeBullets | ZoneFlags.ConsumeEnemies),
-                        Lifesteal = 0.05f, Knockback = 0f, Color = F4(f.Color, 0.6f),
+                        Lifesteal = 0.05f, Knockback = 0f, Color = F4(f.Color, 0.6f), Vfx = ZoneVfx.Devour,
                     });
                     Rig.Shake(0.3f);
                     Audio.Play(SfxPlayer.Id.Explode, 0.05f);
@@ -180,6 +226,15 @@ namespace DiceMania.Game
                 {
                     Run.RollsLeft += Mathf.Max(1, count);
                     slowTimer = Mathf.Max(slowTimer, dur);
+                    // Time ripple: a slow ring washing over the screen.
+                    var cc = F4(f.Color, 1f);
+                    Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+                    {
+                        Fx.Shockwave(ecb, pf, pp, 0.2f, 1f, 30f, cc, 0.9f);
+                        Fx.Shockwave(ecb, pf, pp, 0.25f, 0.5f, 18f, new float4(1f, 1f, 1f, 0.6f), 0.7f);
+                        Fx.Sparkles(ecb, pf, pp, 14, 2f, cc, ref r);
+                    });
+                    Flash(0.15f);
                     break;
                 }
                 case "meteor":
@@ -194,7 +249,7 @@ namespace DiceMania.Game
                             Ecs.SpawnZone(target, new DamageZone
                             {
                                 Damage = value * Run.Might, Radius = radius, Life = 1.1f + i * 0.12f, Delay = 0.7f + i * 0.12f,
-                                Flags = ZoneFlags.SingleTick, Knockback = 6f, Color = F4(f.Color, 0.7f),
+                                Flags = ZoneFlags.SingleTick, Knockback = 6f, Color = F4(f.Color, 0.7f), Vfx = ZoneVfx.Meteor,
                             });
                         }
                     }
@@ -205,26 +260,39 @@ namespace DiceMania.Game
                     Ecs.SpawnZone(pp, new DamageZone
                     {
                         Damage = value * Run.Might, Radius = radius, Life = 0.5f, Flags = (byte)(ZoneFlags.SingleTick | ZoneFlags.Freeze),
-                        FreezeTime = dur, Color = F4(f.Color, 0.6f),
+                        FreezeTime = dur, Color = F4(f.Color, 0.35f), Vfx = ZoneVfx.Frost,
                     });
                     break;
                 }
                 case "magnet":
+                {
                     Ecs.MagnetAllPickups();
+                    var cc = F4(f.Color, 0.9f);
+                    Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+                    {
+                        Fx.Shockwave(ecb, pf, pp, 0.2f, 1f, 24f, cc, 0.6f);
+                        Fx.Converge(ecb, pf, pp, 6f, 20, 0.4f, cc, ref r);
+                    });
                     break;
+                }
                 case "aegis":
                 {
                     var b = Ecs.Get<Buffs>(); b.Invuln = Mathf.Max(b.Invuln, dur); Ecs.Set(b);
                     Ecs.SpawnZone(pp, new DamageZone
                     {
                         Damage = value * Run.Might, Interval = 0.3f, Timer = 0.05f, Radius = radius, Life = dur, Follow = 1,
-                        Flags = ZoneFlags.Aura, Knockback = 2f, Color = F4(f.Color, 0.5f),
+                        Flags = ZoneFlags.Aura, Knockback = 2f, Color = F4(f.Color, 0.5f), Vfx = ZoneVfx.Aegis,
                     });
                     break;
                 }
                 case "goldrush":
                 {
                     var b = Ecs.Get<Buffs>(); b.GoldRush = Mathf.Max(b.GoldRush, dur); Ecs.Set(b);
+                    Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+                    {
+                        Fx.Debris(ecb, pf, pp, 0.8f, 16, new float4(1f, 0.8f, 0.15f, 0.8f), 5f, 0.3f, 1.2f, ref r);
+                        Fx.Glow(ecb, pf, pp, 0.7f, 4f, new float4(1f, 0.8f, 0.2f, 0.9f), 0.25f);
+                    });
                     break;
                 }
                 default:
@@ -348,11 +416,16 @@ namespace DiceMania.Game
             {
                 Kind = ProjKind.Copy, Damage = 0f, Life = 4f, Pierce = 0, Target = CopyTarget,
                 Speed = GameDatabase.Cfg("CopyShotSpeed", 28),
-            }, ShapeId.Diamond, 0.8f, new float4(1f, 0.3f, 0.45f, 1f));
+            }, ShapeId.Diamond, 0.8f, new float4(1f, 0.3f, 0.45f, 1f), halo: true);
             Copy = CopyPhase.Flying;
             copyFlightRealTime = 0f;
             copyTimeScale = GameDatabase.Cfg("CopyShotTimeScale", 0.12f);
             Rig.ZoomTarget = 0.7f;
+            Rig.Kick(new Vector2(d.x, d.y), 0.5f);
+            Rig.Vibrate(0.3f);
+            Rumble.Pulse(0.5f, 0.12f);
+            Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+                Fx.Muzzle(ecb, pf, pp + d * 0.8f, d, 1.6f, new float4(1f, 0.3f, 0.45f, 1f), ref r));
             Audio.Play(SfxPlayer.Id.Copy, 0.1f);
         }
 
@@ -385,7 +458,23 @@ namespace DiceMania.Game
             Ecs.Em.SetComponentData(Ecs.Player, form);
             ShowBanner("YOU ARE NOW: " + def.Name.ToUpper(), new Color(1f, 0.4f, 0.55f), 2.2f);
             Audio.Play(SfxPlayer.Id.Transform);
+            // Anime hit: freeze, white flash, burst lines, punch in, snap back.
+            RequestHitStop(0.12f, true);
+            Flash(0.6f);
+            Lines();
+            Rig.Punch(0.25f);
             Rig.Shake(0.5f);
+            Rumble.Pulse(0.9f, 0.25f);
+            float2 pp = Ecs.PlayerPos;
+            var col = F4(def.Color, 1f);
+            Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
+            {
+                Fx.Shockwave(ecb, pf, pp, 0.3f, 0.5f, 5f, col, 0.4f);
+                SpawnUtil.Burst(ecb, pf, pp, 14, col, 8f, 0.3f, 0.6f, ref r);
+            });
+            var pv = Ecs.Em.GetComponentData<Visual>(Ecs.Player);
+            pv.SquashAmp = 1f; pv.SquashT = 0f; pv.Flash = 1f;
+            Ecs.Em.SetComponentData(Ecs.Player, pv);
             EndCopy();
         }
 

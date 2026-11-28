@@ -25,7 +25,7 @@ namespace DiceMania.Game
         public void Init()
         {
             var em = Em;
-            Singleton = em.CreateEntity(typeof(GameClock), typeof(PlayerStats), typeof(Buffs), typeof(GameEvents), typeof(Prefabs));
+            Singleton = em.CreateEntity(typeof(GameClock), typeof(PlayerStats), typeof(Buffs), typeof(GameEvents), typeof(Prefabs), typeof(Feel));
             em.AddBuffer<DamageNumber>(Singleton);
             em.AddBuffer<SpawnRequest>(Singleton);
             em.AddBuffer<SfxEvent>(Singleton);
@@ -56,7 +56,7 @@ namespace DiceMania.Game
                 Any = new ComponentType[]
                 {
                     typeof(Enemy), typeof(Projectile), typeof(EnemyShot), typeof(Pickup), typeof(Particle),
-                    typeof(DamageZone), typeof(CloneUnit), typeof(PlayerTag),
+                    typeof(DamageZone), typeof(CloneUnit), typeof(PlayerTag), typeof(PlayerGun),
                 },
             });
         }
@@ -85,6 +85,21 @@ namespace DiceMania.Game
             c.MagnetSpeed = GameDatabase.Cfg("MagnetSpeed", 24);
             c.InvulnTime = GameDatabase.Cfg("PlayerInvulnTime", 0.6f);
             Set(c);
+
+            Set(new Feel
+            {
+                HitStopHurt = GameDatabase.Cfg("HitStopHurt", 0.08f),
+                HitStopKill = GameDatabase.Cfg("HitStopKill", 0.025f),
+                HitStopElite = GameDatabase.Cfg("HitStopElite", 0.06f),
+                HitStopBoss = GameDatabase.Cfg("HitStopBoss", 0.35f),
+                CorpseFreeze = GameDatabase.Cfg("CorpseFreeze", 0.07f),
+                CorpseThrow = GameDatabase.Cfg("CorpseThrow", 13f),
+                SplatLife = GameDatabase.Cfg("SplatLife", 14f),
+                ShellLife = GameDatabase.Cfg("ShellLife", 8f),
+                Recoil = GameDatabase.Cfg("Recoil", 1f),
+                Kick = GameDatabase.Cfg("CameraKick", 1f),
+                Shake = GameDatabase.Cfg("ScreenShake", 1f),
+            });
         }
 
         public void SetRunning(bool running)
@@ -109,6 +124,29 @@ namespace DiceMania.Game
             em.SetComponentData(Player, new Visual { Mesh = (byte)ShapeId.Sphere, Scale = new float3(r * 2), Y = r, Color = col });
             em.SetComponentData(Player, new Health { Value = maxHp, Max = maxHp });
             em.SetComponentData(Player, new PlayerData { Speed = ch.MoveSpeed, AimDir = new float2(1, 0), BaseColor = col });
+
+            // The little gun that kicks back and flashes on every shot.
+            var gun = em.CreateEntity(typeof(Pos), typeof(Visual), typeof(PlayerGun));
+            em.SetName(gun, "PlayerGun");
+            em.SetComponentData(gun, new Pos { Value = new float2(0.68f, 0f) });
+            em.SetComponentData(gun, new PlayerGun { Dir = new float2(1, 0) });
+            em.SetComponentData(gun, new Visual
+            {
+                Mesh = (byte)ShapeId.Cube, Scale = new float3(0.5f, 0.2f, 0.2f), Y = 0.55f, Color = new float4(0.85f, 0.92f, 1f, 0.35f),
+            });
+        }
+
+        /// <summary>Hides the hero's gun right away (death); the WeaponSystem keeps it hidden afterwards.</summary>
+        public void HideGun()
+        {
+            var q = Em.CreateEntityQuery(typeof(PlayerGun), typeof(Visual));
+            using (var ents = q.ToEntityArray(Allocator.Temp))
+                foreach (var e in ents)
+                {
+                    var v = Em.GetComponentData<Visual>(e);
+                    v.Scale = float3.zero;
+                    Em.SetComponentData(e, v);
+                }
         }
 
         public float2 PlayerPos => Player != Entity.Null && Em.Exists(Player) ? Em.GetComponentData<Pos>(Player).Value : float2.zero;
@@ -279,6 +317,7 @@ namespace DiceMania.Game
                     Color = new float4(d.Color.r, d.Color.g, d.Color.b, 0.7f),
                     Evolved = (byte)(d.IsEvolution ? 1 : 0),
                     Timer = i < old.Length ? old[i].Timer : 0.3f,
+                    Recoil = d.Recoil, Kick = d.Kick, Shake = d.Shake, Shell = (byte)math.clamp(d.Shell, 0, 2),
                 };
                 slots.Add(slot);
 
@@ -426,14 +465,19 @@ namespace DiceMania.Game
             return e;
         }
 
-        public Entity SpawnPlayerShot(float2 pos, float2 dir, Projectile p, ShapeId mesh, float size, float4 color)
+        public Entity SpawnPlayerShot(float2 pos, float2 dir, Projectile p, ShapeId mesh, float size, float4 color, bool halo = false)
         {
             var e = Em.Instantiate(Prefabs.PlayerShot);
+            float heading = -math.atan2(dir.y, dir.x);
             Em.SetComponentData(e, new Pos { Value = pos });
             Em.SetComponentData(e, new Vel { Value = dir * p.Speed });
             Em.SetComponentData(e, p);
             Em.SetComponentData(e, new Radius { Value = size * 0.5f });
-            Em.SetComponentData(e, new Visual { Mesh = (byte)mesh, Scale = new float3(size), Y = 0.7f, RotY = -math.atan2(dir.y, dir.x), Color = color });
+            Em.SetComponentData(e, new Visual
+            {
+                Mesh = (byte)mesh, Fx = (byte)(VisualFx.Trail | (halo ? VisualFx.Halo : 0)), Scale = new float3(size), Y = 0.7f,
+                RotY = heading, Heading = heading, TrailLen = math.min(1.8f, p.Speed * 0.05f), Color = color,
+            });
             return e;
         }
 
@@ -442,16 +486,28 @@ namespace DiceMania.Game
             var e = Em.Instantiate(Prefabs.Clone);
             Em.SetComponentData(e, new Pos { Value = pos });
             Em.SetComponentData(e, new CloneUnit { Life = life, FireCooldown = cooldown, Damage = damage, OrbitAngle = angle, FireTimer = 0.2f });
-            Em.SetComponentData(e, new Visual { Mesh = (byte)ShapeId.Sphere, Scale = new float3(0.75f), Y = 0.4f, Color = color });
+            Em.SetComponentData(e, new Visual { Mesh = (byte)ShapeId.Sphere, Scale = new float3(0.75f), Y = 0.4f, Color = color, SquashAmp = 1f });
+        }
+
+        // ------------------------------------------------------------------ managed access to the Fx library
+
+        Unity.Mathematics.Random fxRng = Unity.Mathematics.Random.CreateFromIndex(4711);
+
+        /// <summary>Spawn effects from managed code: <c>Fx(( ecb, prefab, ref rng) => DiceMania.ECS.Fx.Glow(ecb, prefab, ...))</c>.</summary>
+        public delegate void FxAction(EntityCommandBuffer ecb, Entity particlePrefab, ref Unity.Mathematics.Random rng);
+
+        public void Fx(FxAction action)
+        {
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            action(ecb, Prefabs.Particle, ref fxRng);
+            ecb.Playback(Em);
+            ecb.Dispose();
         }
 
         public void Burst(float2 pos, int count, float4 color, float speed, float size, float life)
         {
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
-            var r = Unity.Mathematics.Random.CreateFromIndex((uint)(Time.frameCount * 31 + count));
-            SpawnUtil.Burst(ecb, Prefabs.Particle, pos, count, color, speed, size, life, ref r);
-            ecb.Playback(Em);
-            ecb.Dispose();
+            Fx((EntityCommandBuffer ecb, Entity prefab, ref Unity.Mathematics.Random r) =>
+                SpawnUtil.Burst(ecb, prefab, pos, count, color, speed, size, life, ref r));
         }
 
         /// <summary>A temporary marker entity used for UI-ish world visuals (copy target ring, aim beam).</summary>

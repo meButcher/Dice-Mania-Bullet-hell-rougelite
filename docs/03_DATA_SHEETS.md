@@ -48,6 +48,29 @@ Adding a **new face** needs one line of code in `GameDirector.Dice.cs → Activa
 ### Weapons.csv
 `Kind` = `PipShot | Orbit | Cannon | CardFan | ChipRing | Aura`. Per-level growth: Damage (+DamagePerLevel), Cooldown (×(1 − CooldownReductionPerLevel×(L−1))), Count, Pierce, Area. For **Orbit**, `Speed` = spin (rad/s) and `Area` = orbit distance. For **Aura**, `Area` = radius and `Cooldown` = tick time. Rows with `EvolvesFrom` are evolutions (offered when the base weapon is max level and you own the `EvolveRequires` passive).
 
+**Feel columns** (how a volley *feels*, see [04_GAME_FEEL.md](04_GAME_FEEL.md)):
+
+| Column | Meaning | Pip Shot | Cannon |
+|---|---|---|---|
+| `Knockback` | How far a hit shoves the enemy. Keep bullets small (they should cut through), explosions big | 0.6 | 2 |
+| `Recoil` | Speed the hero is pushed back per volley (dies off in ~0.1 s) | 1.6 | 7 |
+| `Kick` | Camera kick opposite the shot | 0.14 | 0.65 |
+| `Shake` | Short screen vibration + gamepad rumble per volley | 0.12 | 0.45 |
+| `Shell` | Casing ejected per volley: 0 none, 1 small, 2 big | 1 | 2 |
+
+### Feel keys in Config.csv
+| Key | Default | Meaning |
+|---|---|---|
+| `HitStopHurt` | 0.08 | Freeze frames when the player gets hit |
+| `HitStopKill` | 0.02 | Tiny freeze on a kill (skipped during hordes, rate-limited by `HitStopCooldown`) |
+| `HitStopElite` / `HitStopBoss` | 0.06 / 0.35 | Freeze when an elite / boss dies |
+| `HitStopCooldown` | 0.3 | Minimum gap between small freezes |
+| `CorpseFreeze` | 0.07 | Seconds a killed enemy hangs as a white silhouette before it's thrown |
+| `CorpseThrow` | 13 | Speed the body is thrown along the killing hit |
+| `SplatLife` / `ShellLife` | 14 / 8 | Seconds splats and shells stay on the floor |
+| `ScreenShake`, `CameraKick`, `Recoil`, `Rumble` | 1 | Global multipliers (0 = off) |
+| `DamageNumbers` | 1 | 0 hides damage numbers |
+
 ### Stats (used by Passives / Relics / Meta `Stat` columns)
 `MaxHP, MoveSpeed, Might, Cooldown, Area, ProjectileCount, ProjectileSpeed, Duration, PickupRadius, Armor, Regen, Luck, Growth, Greed, RollCharges, RollRecharge, FacePower, Thorns, Revival, Interest, DoublesChance`.
 Percent stats use fractions (`0.1` = +10%). `Luck` = crit chance. `DoublesChance` = chance a rolled face fires twice ("Echo").

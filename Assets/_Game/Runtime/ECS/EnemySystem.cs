@@ -40,6 +40,7 @@ namespace DiceMania.ECS
             int disguisedAs = copy.Time > 0f ? copy.EnemyDef : -1;
             float lim = clock.ArenaHalf - 0.5f;
             bool anyShot = false;
+            int muzzleBudget = 6;
             var noPlayerTpl = new Projectile();
 
             // ---------------- Bosses: cycle phases (writes the active pattern into Shooter) ----------------
@@ -143,12 +144,22 @@ namespace DiceMania.ECS
                 ref var g = ref gun.ValueRW;
                 if (g.Pattern == (byte)PatternType.None || g.Pattern == (byte)PatternType.Summon) continue;
                 bool canFire = dist <= g.Range && e.Def != disguisedAs;
+                // Wind-up (anticipation): slow shooters brighten just before a volley so it can be read and dodged.
+                if (canFire && g.Cooldown >= 0.8f && g.BurstLeft == 0 && g.Timer < 0.3f)
+                    v.Flash = math.max(v.Flash, (0.3f - math.max(0f, g.Timer)) * 1.4f);
                 if (SpawnUtil.TickShooter(ref g, dt, canFire))
                 {
                     float4 bc = e.Boss != 0 ? new float4(1f, 0.35f, 0.85f, 1f) : new float4(1f, 0.2f, 0.25f, 1f);
                     float size = e.Boss != 0 ? 0.42f : 0.3f;
                     SpawnUtil.FireVolley(ecb, pf, ref g, pos.ValueRO.Value, dir, false, clock.EnemyBulletLife, bc, size, ref rng, noPlayerTpl);
                     anyShot = true;
+                    if (g.Cooldown >= 0.5f)
+                    {
+                        v.SquashAmp = math.max(v.SquashAmp, 0.3f);
+                        v.SquashT = 0f;
+                    }
+                    if (muzzleBudget-- > 0)
+                        Fx.Glow(ecb, pf.Particle, pos.ValueRO.Value + dir * (v.Scale.x * 0.5f + 0.2f), 0.6f, 1f + size, new float4(bc.xyz, 0.8f), 0.07f);
                 }
             }
             if (anyShot) sfx.Add(new SfxEvent { Id = Sfx.EnemyShoot });

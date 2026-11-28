@@ -3,7 +3,10 @@
 A bullet-hell roguelite in the vein of Vampire Survivors, built around the dice of the original Dice Mania.
 Target: **Unity 6 (LTS)**, **Entities (ECS) + Burst + Jobs**, **Web** (WebGL2, WebGPU optional).
 
-> Status: **Prototype M0–M8 implemented with basic shapes** (Unity 6000.6.2f1). Owner decisions (Nov 2026):
+> Status: **Prototype M0–M8 implemented with basic shapes** (Unity 6000.6.2f1), now compiled, tested and built on the owner's PC:
+> EditMode + PlayMode tests (a bot plays waves, a boss and every dice face), Windows + Web builds, and a full **game-feel pass**
+> (see [04_GAME_FEEL.md](04_GAME_FEEL.md)): hit flash/squash/knockback, gun kick + recoil + camera kick, shells and splats, kill
+> freeze-then-throw, hit-stop, ability VFX, procedural music. Owner decisions (Nov 2026):
 > - Face 2 **Melee → Copy**: hold LMB to target an enemy, release to fire a slow-motion shot that consumes it; you become that enemy for 15 s (its attack, speed, body). Upgradable (duration, power, copy elites at Lv3, bosses at Lv5).
 > - All abilities / upgrades / enemies / stats live in editable CSV sheets the game reads (docs/03_DATA_SHEETS.md).
 > - Basic shapes only for now; visual pass later. Title stays "Dice Mania".
@@ -202,8 +205,11 @@ docs/
 | M8 | Web optimisation & ship | Size/perf pass, itch.io-ready build |
 
 ### B6. Verification
-- No Unity Editor runs in this cloud container, so I can't compile or build here. Options: (a) you open the project at each milestone and send back console errors/screenshots, or (b) you connect your PC (with Unity 6 installed) to this session through Remote Control so I can run Unity's batch-mode compile and web build there directly. (b) is much faster and more reliable.
+- Batch mode on the owner's PC (see README → Tests): compile, EditMode tests, PlayMode smoke tests (bot plays several waves, a boss
+  wave, every dice face; camera captures for visual review), then the Windows playtest build and the Web build.
 - Pure-logic parts (dice odds, wave budgets, upgrade math) are kept in plain C# with EditMode tests.
+- Lesson learned: materials are created in code, so Graphics Settings must keep GPU-instancing variants (`ProjectSetup` forces
+  "Keep All"); with the default "Strip Unused" the player builds draw an empty world while the Editor looks fine.
 
 ### B7. Risks
 | Risk | Mitigation |

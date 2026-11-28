@@ -29,10 +29,11 @@ namespace DiceMania.ECS
             ecb.SetComponent(e, new Vel { Value = dir * p.Speed });
             ecb.SetComponent(e, p);
             ecb.SetComponent(e, new Radius { Value = size * 0.5f });
+            float heading = -math.atan2(dir.y, dir.x);
             ecb.SetComponent(e, new Visual
             {
-                Mesh = mesh, Scale = new float3(size), Y = 0.6f, RotY = -math.atan2(dir.y, dir.x),
-                Spin = mesh == (byte)ShapeId.Cube ? 8f : 0f, Color = color,
+                Mesh = mesh, Fx = VisualFx.Trail, Scale = new float3(size), Y = 0.6f, RotY = heading, Heading = heading,
+                TrailLen = math.min(1.8f, p.Speed * 0.05f), Spin = mesh == (byte)ShapeId.Cube ? 8f : 0f, Color = color,
             });
             return e;
         }
@@ -44,7 +45,7 @@ namespace DiceMania.ECS
             ecb.SetComponent(e, new Pos { Value = pos });
             ecb.SetComponent(e, new Vel { Value = dir * speed });
             ecb.SetComponent(e, new EnemyShot { Damage = damage, Life = life, Radius = size * 0.5f });
-            ecb.SetComponent(e, new Visual { Mesh = (byte)ShapeId.Sphere, Scale = new float3(size), Y = 0.6f, Color = color });
+            ecb.SetComponent(e, new Visual { Mesh = (byte)ShapeId.Sphere, Fx = VisualFx.Halo, Scale = new float3(size), Y = 0.6f, Color = color });
         }
 
         /// <summary>
@@ -148,24 +149,10 @@ namespace DiceMania.ECS
             return false;
         }
 
+        /// <summary>Debris burst that arcs, bounces and shrinks (see Fx.Debris).</summary>
         public static void Burst(EntityCommandBuffer ecb, Entity prefab, float2 pos, int count, float4 color, float speed, float size,
             float life, ref Random rng, byte mesh = (byte)ShapeId.Cube)
-        {
-            for (int i = 0; i < count; i++)
-            {
-                var e = ecb.Instantiate(prefab);
-                float2 d = Dir(rng.NextFloat(0f, 360f)) * rng.NextFloat(0.4f, 1f) * speed;
-                ecb.SetComponent(e, new Pos { Value = pos });
-                ecb.SetComponent(e, new Vel { Value = d });
-                float s = size * rng.NextFloat(0.6f, 1.2f);
-                ecb.SetComponent(e, new Particle { Life = life, MaxLife = life, Drag = 3f, StartScale = s });
-                ecb.SetComponent(e, new Visual
-                {
-                    Mesh = mesh, Scale = new float3(s), Y = rng.NextFloat(0.3f, 1.2f), RotY = rng.NextFloat(0, 6.28f),
-                    Spin = rng.NextFloat(-10f, 10f), Color = color,
-                });
-            }
-        }
+            => Fx.Debris(ecb, prefab, pos, 0.6f, count, color, speed, size, life, ref rng, mesh);
 
         public static void Pickup(EntityCommandBuffer ecb, Entity prefab, float2 pos, byte kind, float value, ref Random rng)
         {
@@ -186,7 +173,8 @@ namespace DiceMania.ECS
                     col = value >= 10 ? new float4(1f, 0.3f, 0.9f, 0.9f) : value >= 3 ? new float4(0.3f, 1f, 0.5f, 0.9f) : new float4(0.3f, 0.7f, 1f, 0.9f);
                     break;
             }
-            ecb.SetComponent(e, new Visual { Mesh = mesh, Scale = new float3(scale), Y = 0.4f, Spin = 2.5f, Color = col });
+            byte fx = kind == PickupKind.Chest || kind == PickupKind.Heal || (kind == PickupKind.Xp && value >= 10) ? VisualFx.Halo : (byte)0;
+            ecb.SetComponent(e, new Visual { Mesh = mesh, Fx = fx, Scale = new float3(scale), Y = 0.4f, Spin = 2.5f, Color = col });
         }
 
         public static Entity Zone(EntityCommandBuffer ecb, Entity prefab, float2 pos, DamageZone z)

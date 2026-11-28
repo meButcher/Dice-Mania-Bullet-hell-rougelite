@@ -1,13 +1,13 @@
-Id,Name,Kind,Description,MaxLevel,Damage,DamagePerLevel,Cooldown,CooldownReductionPerLevel,Count,CountPerLevel,Speed,Pierce,PiercePerLevel,Area,AreaPerLevel,Life,Knockback,Color,EvolvesFrom,EvolveRequires,Weight
-pipshot,Pip Shot,PipShot,Fires pips at the nearest enemy,8,10,3,0.8,0.06,1,0.34,22,0,0.25,0.3,0.03,1.6,0.6,#E8F4FF,,,10
-orbit,Orbiting Dice,Orbit,Dice circle around you hitting enemies,8,12,4,0,0,2,0.5,3.2,999,0,2.6,0.15,0,1.2,#FFFFFF,,,8
-cannon,Dice Cannon,Cannon,Heavy shot that explodes - damage rolls 1-6x,8,14,5,2.4,0.06,1,0.25,14,0,0,2.2,0.2,3,2,#FF9F3E,,,7
-cardfan,Card Fan,CardFan,Throws a fan of cards toward enemies,8,7,2,1.1,0.05,3,0.5,18,1,0.2,0.35,0.03,1.2,0.3,#FF5E8A,,,8
-chipring,Chip Ring,ChipRing,Bursts poker chips in all directions,8,8,3,2,0.06,8,1,12,1,0.2,0.4,0.03,1.5,0.8,#5EFF9F,,,8
-aura,Lucky Aura,Aura,Damages enemies around you,8,5,2,0.5,0.03,0,0,0,0,0,2.4,0.25,0,0.2,#9FFF5E,,,7
-loadedbarrage,Loaded Barrage,PipShot,EVOLVED Pip Shot - piercing homing volleys,1,24,0,0.35,0,4,0,30,3,0,0.45,0,1.8,0.8,#7FFFFF,pipshot,might,0
-dicestorm,Dice Storm,Orbit,EVOLVED Orbiting Dice - a wide storm of dice,1,32,0,0,0,6,0,4.5,999,0,3.8,0,0,2,#FFE08A,orbit,area,0
-doomcannon,Doom Cannon,Cannon,EVOLVED Dice Cannon - fast huge explosions,1,40,0,1.1,0,2,0,18,0,0,4,0,3,3,#FF5A1E,cannon,cooldown,0
-royalflush,Royal Flush,CardFan,EVOLVED Card Fan - piercing royal cards,1,18,0,0.6,0,7,0,24,4,0,0.45,0,1.4,0.6,#FFD23E,cardfan,projcount,0
-highroller,High Roller,ChipRing,EVOLVED Chip Ring - double spiralling rings,1,20,0,0.9,0,20,0,16,3,0,0.5,0,1.8,1,#3EFF7A,chipring,projspeed,0
-jackpotfield,Jackpot Field,Aura,EVOLVED Lucky Aura - huge healing aura,1,16,0,0.35,0,0,0,0,0,0,4.5,0,0,0.6,#E0FF3E,aura,maxhp,0
+Id,Name,Kind,Description,MaxLevel,Damage,DamagePerLevel,Cooldown,CooldownReductionPerLevel,Count,CountPerLevel,Speed,Pierce,PiercePerLevel,Area,AreaPerLevel,Life,Knockback,Color,EvolvesFrom,EvolveRequires,Weight,Recoil,Kick,Shake,Shell
+pipshot,Pip Shot,PipShot,Fires pips at the nearest enemy,8,10,3,0.8,0.06,1,0.34,22,0,0.25,0.3,0.03,1.6,0.6,#E8F4FF,,,10,1.6,0.14,0.12,1
+orbit,Orbiting Dice,Orbit,Dice circle around you hitting enemies,8,12,4,0,0,2,0.5,3.2,999,0,2.6,0.15,0,1.2,#FFFFFF,,,8,0,0,0,0
+cannon,Dice Cannon,Cannon,Heavy shot that explodes - damage rolls 1-6x,8,14,5,2.4,0.06,1,0.25,14,0,0,2.2,0.2,3,2,#FF9F3E,,,7,7,0.65,0.45,2
+cardfan,Card Fan,CardFan,Throws a fan of cards toward enemies,8,7,2,1.1,0.05,3,0.5,18,1,0.2,0.35,0.03,1.2,0.3,#FF5E8A,,,8,1,0.1,0.08,0
+chipring,Chip Ring,ChipRing,Bursts poker chips in all directions,8,8,3,2,0.06,8,1,12,1,0.2,0.4,0.03,1.5,0.8,#5EFF9F,,,8,0,0,0.12,0
+aura,Lucky Aura,Aura,Damages enemies around you,8,5,2,0.5,0.03,0,0,0,0,0,2.4,0.25,0,0.2,#9FFF5E,,,7,0,0,0,0
+loadedbarrage,Loaded Barrage,PipShot,EVOLVED Pip Shot - piercing homing volleys,1,24,0,0.35,0,4,0,30,3,0,0.45,0,1.8,0.8,#7FFFFF,pipshot,might,0,2,0.16,0.14,1
+dicestorm,Dice Storm,Orbit,EVOLVED Orbiting Dice - a wide storm of dice,1,32,0,0,0,6,0,4.5,999,0,3.8,0,0,2,#FFE08A,orbit,area,0,0,0,0,0
+doomcannon,Doom Cannon,Cannon,EVOLVED Dice Cannon - fast huge explosions,1,40,0,1.1,0,2,0,18,0,0,4,0,3,3,#FF5A1E,cannon,cooldown,0,9,0.85,0.55,2
+royalflush,Royal Flush,CardFan,EVOLVED Card Fan - piercing royal cards,1,18,0,0.6,0,7,0,24,4,0,0.45,0,1.4,0.6,#FFD23E,cardfan,projcount,0,1.2,0.12,0.1,0
+highroller,High Roller,ChipRing,EVOLVED Chip Ring - double spiralling rings,1,20,0,0.9,0,20,0,16,3,0,0.5,0,1.8,1,#3EFF7A,chipring,projspeed,0,0,0,0.14,0
+jackpotfield,Jackpot Field,Aura,EVOLVED Lucky Aura - huge healing aura,1,16,0,0.35,0,0,0,0,0,0,4.5,0,0,0.6,#E0FF3E,aura,maxhp,0,0,0,0,0

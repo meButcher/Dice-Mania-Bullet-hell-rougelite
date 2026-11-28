@@ -7,9 +7,23 @@ A fusion of Vampire Survivors, dice rolls and bullet hell — the sequel to the 
 1. Open this folder in Unity Hub with **6000.6.2f1**. First import creates `Assets/_Game/Scenes/Main.unity` (or run `Dice Mania → Setup Project`).
 2. Press **Play** in any scene — the game boots itself (`Bootstrap.cs`), no scene setup needed.
 3. Web build: `Dice Mania → Build Web` → `Builds/Web` (or CLI: `-executeMethod DiceMania.EditorTools.WebBuild.BuildWeb`).
+   Windows playtest build: `Dice Mania → Build Windows (playtest)` → `Builds/Win/DiceMania.exe` (CLI: `...WebBuild.BuildWindows`).
 
 ## Controls
-WASD move · weapons auto-fire · **SPACE** roll dice · **hold/release LMB** to aim & fire a Copy shot · 1/2/3 pick level-up card · ESC pause · F5 (Editor) hot-reload data.
+WASD move · weapons auto-fire · **SPACE** roll dice · **hold/release LMB** to aim & fire a Copy shot · 1/2/3 pick level-up card · ESC pause · ENTER confirm · F5 (Editor) hot-reload data.
+Gamepad: left stick move · A / RB roll · hold RT (+ right stick) to aim Copy · D-pad picks cards · Start pause / continue.
+Pause menu: sound, **screen shake** and **rumble** toggles.
+
+## Game feel
+Hit flash + squash + slight knockback, gun kick / muzzle flash / recoil / camera kick, shells and splats that stay on the floor,
+kills that freeze then get thrown, hit-stop, damage numbers that pop, ability VFX (ice spikes, meteors, shockwaves…).
+Research and the full mapping: [docs/04_GAME_FEEL.md](docs/04_GAME_FEEL.md). Every knob is in the CSV sheets.
+
+## Tests
+- EditMode: dice logic, CSV parsing, sheet validation.
+- PlayMode (`Assets/_Game/Tests/PlayMode`): a bot plays several waves (dice, Copy, level-ups, Forge, pause, death), a boss wave,
+  and a gallery that fires every dice face. Captures go to `Builds/Captures` (or `$DICEMANIA_CAPTURE_DIR`).
+- CLI: `Unity -batchmode -projectPath . -runTests -testPlatform PlayMode -testResults results.xml`
 
 ## Edit the game without code
 Every ability, upgrade, enemy, wave and stat is in **`Assets/_Game/Resources/Data/*.csv`** → see [docs/03_DATA_SHEETS.md](docs/03_DATA_SHEETS.md).
@@ -18,6 +32,7 @@ Every ability, upgrade, enemy, wave and stat is in **`Assets/_Game/Resources/Dat
 - [01 Original game analysis](docs/01_ORIGINAL_GAME_ANALYSIS.md)
 - [02 Design & technical plan](docs/02_DESIGN_AND_TECH_PLAN.md)
 - [03 Data sheets](docs/03_DATA_SHEETS.md)
+- [04 Game feel](docs/04_GAME_FEEL.md)
 
 ## Code map (`Assets/_Game/Runtime`)
 | Folder | |

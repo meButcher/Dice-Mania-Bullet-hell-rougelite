@@ -21,8 +21,9 @@ namespace DiceMania.Game
         const float H = 720f;
 
         GUIStyle label, labelC, labelR, big, huge, small, button, card, tiny;
-        Texture2D white;
+        Texture2D white, vignette, burst;
         bool stylesReady;
+        float hpGhost = 1f, lastHpFrac = 1f, lastHpDrop;
 
         static readonly Color Panel = new Color(0.06f, 0.07f, 0.14f, 0.92f);
         static readonly Color PanelLight = new Color(0.12f, 0.14f, 0.26f, 0.95f);
@@ -42,7 +43,56 @@ namespace DiceMania.Game
             button = new GUIStyle(GUI.skin.button) { fontSize = 18, fontStyle = FontStyle.Bold };
             button.normal.textColor = button.hover.textColor = button.active.textColor = Color.white;
             card = new GUIStyle(label) { fontSize = 15, alignment = TextAnchor.UpperLeft, padding = new RectOffset(10, 10, 8, 8) };
+            vignette = MakeVignette(128);
+            burst = MakeBurstLines(256);
             stylesReady = true;
+        }
+
+        /// <summary>White radial edge gradient (tinted red for hurt / low HP).</summary>
+        static Texture2D MakeVignette(int size)
+        {
+            var t = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "DM_Vignette" };
+            var px = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x + 0.5f) / size * 2f - 1f, dy = (y + 0.5f) / size * 2f - 1f;
+                float r = Mathf.Sqrt(dx * dx + dy * dy) / 1.2f;
+                float a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.45f, 1f, r));
+                px[y * size + x] = new Color32(255, 255, 255, (byte)(a * 255));
+            }
+            t.SetPixels32(px);
+            t.Apply();
+            return t;
+        }
+
+        /// <summary>Anime burst lines: random wedges radiating from a clear centre.</summary>
+        static Texture2D MakeBurstLines(int size)
+        {
+            var t = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "DM_BurstLines" };
+            var px = new Color32[size * size];
+            const int rays = 56;
+            var rnd = new System.Random(3);
+            var width = new float[rays];
+            var start = new float[rays];
+            for (int i = 0; i < rays; i++) { width[i] = 0.15f + (float)rnd.NextDouble() * 0.45f; start[i] = 0.42f + (float)rnd.NextDouble() * 0.3f; }
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x + 0.5f) / size * 2f - 1f, dy = (y + 0.5f) / size * 2f - 1f;
+                float r = Mathf.Sqrt(dx * dx + dy * dy);
+                float a01 = (Mathf.Atan2(dy, dx) / (Mathf.PI * 2f) + 1f) % 1f;
+                float f = a01 * rays;
+                int i = (int)f % rays;
+                float within = f - Mathf.Floor(f);
+                float w = width[i] * Mathf.InverseLerp(start[i], 1.3f, r);   // rays get wider toward the edge
+                float a = within < w ? 1f : 0f;
+                a *= Mathf.InverseLerp(start[i], start[i] + 0.12f, r);
+                px[y * size + x] = new Color32(255, 255, 255, (byte)(Mathf.Clamp01(a) * 255));
+            }
+            t.SetPixels32(px);
+            t.Apply();
+            return t;
         }
 
         void Fill(Rect r, Color c)
@@ -92,6 +142,7 @@ namespace DiceMania.Game
             scale = Screen.height / H;
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
 
+            DrawScreenFx();
             DrawFloaters();
             switch (D.State)
             {
@@ -121,17 +172,61 @@ namespace DiceMania.Game
         {
             if (D.Rig == null || D.Rig.Cam == null) return;
             var cam = D.Rig.Cam;
+            var baseM = GUI.matrix;
+            int old = labelC.fontSize;
             foreach (var f in D.Floaters)
             {
                 var sp = cam.WorldToScreenPoint(f.World);
                 if (sp.z < 0) continue;
                 float x = sp.x / scale, y = (Screen.height - sp.y) / scale;
-                var c = f.Color; c.a = 1f - Mathf.Clamp01((f.Age - 0.5f) / 0.3f);
-                int old = labelC.fontSize;
+                float life = f.Life > 0f ? f.Life : 0.8f;
+                var c = f.Color; c.a = 1f - Mathf.Clamp01((f.Age - life * 0.6f) / (life * 0.4f));
+                // Pop in big, settle fast (scaled with the GUI matrix so the font atlas isn't rebuilt per size).
+                float pop = 1f + f.Pop * Mathf.Max(0f, 1f - f.Age / 0.12f);
                 labelC.fontSize = Mathf.RoundToInt(15 * f.Size);
-                Shadowed(new Rect(x - 60, y - 12, 120, 24), f.Text, labelC, c);
-                labelC.fontSize = old;
+                GUI.matrix = baseM * Matrix4x4.TRS(new Vector3(x, y, 0f), Quaternion.identity, new Vector3(pop, pop, 1f)) * Matrix4x4.Translate(new Vector3(-x, -y, 0f));
+                float h = labelC.fontSize * 1.6f;
+                Shadowed(new Rect(x - 80, y - h * 0.5f, 160, h), f.Text, labelC, c);
             }
+            GUI.matrix = baseM;
+            labelC.fontSize = old;
+        }
+
+        // ================================================================== screen feel
+
+        void DrawScreenFx()
+        {
+            // Hurt vignette, plus a slow red pulse when HP is low.
+            float hurt = D.HurtFlash;
+            bool inRun = D.Run != null && D.Ecs != null && D.Ecs.Player != Unity.Entities.Entity.Null &&
+                         (D.State == GameState.Playing || D.State == GameState.WaveClear || D.State == GameState.LevelUp || D.State == GameState.Paused);
+            if (inRun)
+            {
+                var hp = D.Ecs.PlayerHealth;
+                float frac = hp.Value / Mathf.Max(1f, hp.Max);
+                if (frac < 0.3f) hurt = Mathf.Max(hurt, (0.3f - frac) / 0.3f * (0.35f + 0.25f * Mathf.Sin(Time.unscaledTime * 6f)));
+            }
+            var oldC = GUI.color;
+            if (hurt > 0.01f)
+            {
+                GUI.color = new Color(1f, 0.08f, 0.12f, Mathf.Clamp01(hurt) * 0.55f);
+                GUI.DrawTexture(new Rect(0, 0, W, H), vignette);
+            }
+            if (D.BurstLines > 0.01f)
+            {
+                var m = GUI.matrix;
+                GUIUtility.RotateAroundPivot((Time.frameCount * 37) % 360, new Vector2(W * 0.5f, H * 0.5f));
+                GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01(D.BurstLines) * 0.75f);
+                float s = Mathf.Max(W, H) * 1.5f;
+                GUI.DrawTexture(new Rect(W * 0.5f - s * 0.5f, H * 0.5f - s * 0.5f, s, s), burst);
+                GUI.matrix = m;
+            }
+            if (D.ScreenFlash > 0.01f)
+            {
+                GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01(D.ScreenFlash) * 0.8f);
+                GUI.DrawTexture(new Rect(0, 0, W, H), white);
+            }
+            GUI.color = oldC;
         }
 
         // ================================================================== HUD
@@ -146,10 +241,23 @@ namespace DiceMania.Game
             Bar(new Rect(0, 0, W, 10), run.Xp / Mathf.Max(1f, run.XpToNext), new Color(0.3f, 0.6f, 1f), new Color(0, 0, 0, 0.6f));
             Shadowed(new Rect(8, 10, 120, 22), "LV " + run.Level, small, new Color(0.6f, 0.8f, 1f));
 
-            // HP.
-            Fill(new Rect(14, 34, 16, 16), Color.white);
-            Bar(new Rect(38, 36, 260, 14), hp.Value / Mathf.Max(1f, hp.Max), new Color(1f, 0.3f, 0.35f), new Color(0.2f, 0.05f, 0.08f, 0.8f));
-            Shadowed(new Rect(304, 30, 160, 24), $"{Mathf.CeilToInt(hp.Value)}/{Mathf.CeilToInt(hp.Max)}", small, Color.white);
+            // HP: the bar shakes when hit and a white "ghost" drains behind it, so you can read how much you lost.
+            float hpFrac = Mathf.Clamp01(hp.Value / Mathf.Max(1f, hp.Max));
+            if (Event.current.type == EventType.Repaint)
+            {
+                if (hpFrac < lastHpFrac - 0.0005f) lastHpDrop = Time.unscaledTime;
+                if (hpFrac >= hpGhost) hpGhost = hpFrac;
+                else if (Time.unscaledTime - lastHpDrop > 0.35f) hpGhost = Mathf.MoveTowards(hpGhost, hpFrac, Time.unscaledDeltaTime * 0.7f);
+                lastHpFrac = hpFrac;
+            }
+            float jolt = D.HurtFlash * 5f;
+            Vector2 off = jolt > 0.05f ? new Vector2(Random.Range(-jolt, jolt), Random.Range(-jolt, jolt)) : Vector2.zero;
+            Fill(new Rect(14 + off.x, 34 + off.y, 16, 16), Color.white);
+            var hpRect = new Rect(38 + off.x, 36 + off.y, 260, 14);
+            Fill(hpRect, new Color(0.2f, 0.05f, 0.08f, 0.8f));
+            Fill(new Rect(hpRect.x, hpRect.y, hpRect.width * hpGhost, hpRect.height), new Color(1f, 0.92f, 0.85f, 0.9f));
+            Fill(new Rect(hpRect.x, hpRect.y, hpRect.width * hpFrac, hpRect.height), Color.Lerp(new Color(1f, 0.3f, 0.35f), Color.white, D.HurtFlash * 0.6f));
+            Shadowed(new Rect(304 + off.x, 30 + off.y, 160, 24), $"{Mathf.CeilToInt(hp.Value)}/{Mathf.CeilToInt(hp.Max)}", small, Color.white);
 
             // Weapons + passives.
             float x = 14;
@@ -184,9 +292,16 @@ namespace DiceMania.Game
             Shadowed(new Rect(W - 260, 38, 245, 24), "Gold: " + run.Gold, labelR, new Color(1f, 0.82f, 0.25f));
             Shadowed(new Rect(W - 260, 62, 245, 24), "Kills: " + run.Kills, labelR, new Color(1, 1, 1, 0.7f));
 
-            // Rolls (bottom left).
+            // Rolls (bottom left): the counter punches when you roll.
             Fill(new Rect(14, H - 98, 84, 84), PanelLight);
-            Shadowed(new Rect(14, H - 98, 84, 64), run.RollsLeft.ToString(), huge, run.RollsLeft > 0 ? Color.white : new Color(1, 0.4f, 0.4f));
+            {
+                var baseM = GUI.matrix;
+                float pop = 1f + 0.35f * D.RollPunch;
+                var pivot = new Vector3(56, H - 66, 0);
+                GUI.matrix = baseM * Matrix4x4.TRS(pivot, Quaternion.identity, new Vector3(pop, pop, 1f)) * Matrix4x4.Translate(-pivot);
+                Shadowed(new Rect(14, H - 98, 84, 64), run.RollsLeft.ToString(), huge, run.RollsLeft > 0 ? Color.white : new Color(1, 0.4f, 0.4f));
+                GUI.matrix = baseM;
+            }
             float recharge = GameDatabase.Cfg("RollRechargeSeconds", 25);
             if (recharge > 0) Bar(new Rect(18, H - 28, 76, 6), run.RollRechargeTimer / recharge, new Color(0.7f, 0.5f, 1f), new Color(0, 0, 0, 0.5f));
             Shadowed(new Rect(104, H - 46, 220, 22), "Dice rolls  [SPACE]", small, new Color(1, 1, 1, 0.8f));
@@ -228,10 +343,20 @@ namespace DiceMania.Game
             float x0 = W / 2 - total / 2, y = H - size - 16;
             bool anim = D.RollAnimTime > 0f;
             var roll = D.LastRoll;
+            var trayM = GUI.matrix;
             for (int d = 0; d < n; d++)
             {
                 var die = run.Dice[d];
                 var r = new Rect(x0 + d * (size + gap), y, size, size);
+                // Tumble: rattle while rolling; land: pop.
+                if (anim) r.position += new Vector2(Mathf.Sin(Time.unscaledTime * 55f + d) * 3f, Mathf.Cos(Time.unscaledTime * 47f + d * 2f) * 3f);
+                float pop = 1f + (anim ? 0f : 0.28f * D.RollPunch);
+                if (pop > 1.001f)
+                {
+                    var pivot = new Vector3(r.center.x, r.center.y, 0f);
+                    GUI.matrix = trayM * Matrix4x4.TRS(pivot, Quaternion.identity, new Vector3(pop, pop, 1f)) * Matrix4x4.Translate(-pivot);
+                }
+                else GUI.matrix = trayM;
                 FaceSlot shown;
                 if (anim) shown = die.Slots[(int)(Time.unscaledTime * 20f + d * 3) % 6];
                 else if (roll != null && d < roll.Rolls.Count) shown = die.Slots[roll.Rolls[d].SlotIndex];
@@ -246,6 +371,7 @@ namespace DiceMania.Game
                 }
                 else Text(r, "?", big, new Color(1, 1, 1, 0.5f));
             }
+            GUI.matrix = trayM;
             if (roll != null && D.RollShowTime > 0f && !string.IsNullOrEmpty(roll.ComboText))
                 Shadowed(new Rect(0, y - 30, W, 26), roll.ComboText, labelC, new Color(1f, 0.85f, 0.25f));
         }
@@ -367,6 +493,15 @@ namespace DiceMania.Game
             string next = run.Wave + 1 > D.FinalWave ? $"Wave {run.Wave + 1} (Endless)" : $"Start Wave {run.Wave + 1}";
             var nw = GameDatabase.WaveFor(run.Wave + 1);
             if (nw != null && nw.IsBossWave) next += "  - BOSS!";
+            if (nw != null)
+            {
+                // Next wave preview: who's coming.
+                var names = new System.Collections.Generic.List<string>();
+                if (nw.IsBossWave) { var b = GameDatabase.Enemy(nw.Boss); if (b != null) names.Add("<b>" + b.Name + "</b>"); }
+                foreach (var m in nw.Mix) { var e = GameDatabase.Enemy(m.id); if (e != null && !names.Contains(e.Name)) names.Add(e.Name); }
+                Text(new Rect(W - 640, H - 104, 620, 26), "Next: " + string.Join(", ", names), new GUIStyle(labelR) { fontSize = 14, richText = true },
+                    nw.IsBossWave ? new Color(1f, 0.55f, 0.75f) : new Color(1, 1, 1, 0.6f));
+            }
             if (Button(new Rect(W - 340, H - 70, 320, 52), next + "  >", D.Placing == PlaceMode.None, new Color(0.7f, 0.25f, 0.35f)))
                 D.LeaveForge();
         }
@@ -376,16 +511,40 @@ namespace DiceMania.Game
         void DrawPause()
         {
             Fill(new Rect(0, 0, W, H), new Color(0, 0, 0, 0.65f));
-            Shadowed(new Rect(0, 180, W, 70), "PAUSED", huge, Color.white);
-            if (Button(new Rect(W / 2 - 130, 290, 260, 50), "Resume")) D.Resume();
-            if (Button(new Rect(W / 2 - 130, 350, 260, 50), MetaProgress.Data.SfxOn ? "Sound: ON" : "Sound: OFF")) ToggleSound();
-            if (Button(new Rect(W / 2 - 130, 410, 260, 50), "Quit to Menu", true, new Color(0.55f, 0.2f, 0.25f))) D.QuitToMenu();
+            Shadowed(new Rect(0, 130, W, 70), "PAUSED", huge, Color.white);
+            if (Button(new Rect(W / 2 - 130, 225, 260, 46), "Resume")) D.Resume();
+            if (Button(new Rect(W / 2 - 130, 279, 260, 46), MetaProgress.Data.SfxOn ? "Sound: ON" : "Sound: OFF")) ToggleSound();
+            if (Button(new Rect(W / 2 - 130, 333, 260, 46), MetaProgress.Data.MusicOn ? "Music: ON" : "Music: OFF")) ToggleMusic();
+            if (Button(new Rect(W / 2 - 130, 387, 260, 46), MetaProgress.Data.ShakeOn ? "Screen shake: ON" : "Screen shake: OFF")) ToggleShake();
+            if (Button(new Rect(W / 2 - 130, 441, 260, 46), MetaProgress.Data.RumbleOn ? "Rumble: ON" : "Rumble: OFF")) ToggleRumble();
+            if (Button(new Rect(W / 2 - 130, 505, 260, 46), "Quit to Menu", true, new Color(0.55f, 0.2f, 0.25f))) D.QuitToMenu();
+        }
+
+        void ToggleMusic()
+        {
+            MetaProgress.Data.MusicOn = !MetaProgress.Data.MusicOn;
+            D.Music.SetEnabled(MetaProgress.Data.MusicOn);
+            MetaProgress.Save();
         }
 
         void ToggleSound()
         {
             MetaProgress.Data.SfxOn = !MetaProgress.Data.SfxOn;
             D.Audio.Enabled = MetaProgress.Data.SfxOn;
+            MetaProgress.Save();
+        }
+
+        void ToggleShake()
+        {
+            MetaProgress.Data.ShakeOn = !MetaProgress.Data.ShakeOn;
+            D.ApplyFeelSettings();
+            MetaProgress.Save();
+        }
+
+        void ToggleRumble()
+        {
+            MetaProgress.Data.RumbleOn = !MetaProgress.Data.RumbleOn;
+            D.ApplyFeelSettings();
             MetaProgress.Save();
         }
 
@@ -436,14 +595,7 @@ namespace DiceMania.Game
                 Text(new Rect(20, H - 50, W - 40, 40), $"Data warnings: {CsvTable.Warnings.Count} (see Console). First: {CsvTable.Warnings[0]}", tiny, new Color(1f, 0.6f, 0.3f));
         }
 
-        CharacterDef SelectedCharacter()
-        {
-            var list = GameDatabase.Characters;
-            if (list.Count == 0) return null;
-            var sel = GameDatabase.Character(MetaProgress.Data.SelectedCharacter);
-            if (sel == null || !MetaProgress.IsCharacterUnlocked(sel)) sel = list[0];
-            return sel;
-        }
+        CharacterDef SelectedCharacter() => D.SelectedCharacter();
 
         void DrawHome()
         {
@@ -456,7 +608,9 @@ namespace DiceMania.Game
             if (Button(new Rect(x, y + 54, bw, 46), "Upgrades")) page = MenuPage.Upgrades;
             if (Button(new Rect(x, y + 108, bw, 46), "Unlock Faces")) page = MenuPage.Unlocks;
             if (Button(new Rect(x, y + 162, bw, 46), "How to Play")) page = MenuPage.HowTo;
-            if (Button(new Rect(x, y + 216, bw, 46), MetaProgress.Data.SfxOn ? "Sound: ON" : "Sound: OFF", true, new Color(0.25f, 0.27f, 0.4f))) ToggleSound();
+            if (Button(new Rect(x, y + 216, bw / 2 - 4, 46), MetaProgress.Data.SfxOn ? "Sound: ON" : "Sound: OFF", true, new Color(0.25f, 0.27f, 0.4f))) ToggleSound();
+            if (Button(new Rect(x + bw / 2 + 4, y + 216, bw / 2 - 4, 46), MetaProgress.Data.ShakeOn ? "Shake: ON" : "Shake: OFF", true, new Color(0.25f, 0.27f, 0.4f))) ToggleShake();
+            Text(new Rect(x - 100, y + 268, bw + 200, 22), "ENTER / gamepad A to play", labelC, new Color(1, 1, 1, 0.35f));
         }
 
         bool Back()

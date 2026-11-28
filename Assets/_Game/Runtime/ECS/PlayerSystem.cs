@@ -38,11 +38,22 @@ namespace DiceMania.ECS
                 ref var c = ref copy.ValueRW;
                 bool copied = c.Time > 0f;
 
+                // Dead: stay shattered (the GameDirector plays the death; don't re-show or move the body).
+                if (hp.ValueRO.Value <= 0f)
+                {
+                    vis.ValueRW.Scale = float3.zero;
+                    pd.ValueRW.Recoil = float2.zero;
+                    continue;
+                }
+
                 float speed = pd.ValueRO.Speed * (copied ? c.SpeedMult : 1f);
                 float2 move = pd.ValueRO.MoveInput;
                 float ml = math.length(move);
                 if (ml > 1f) move /= ml;
-                float2 p = pos.ValueRO.Value + move * speed * dt;
+                // Recoil: shots and hits shove the hero; the impulse dies off fast so control stays tight.
+                float2 recoil = pd.ValueRO.Recoil;
+                float2 p = pos.ValueRO.Value + (move * speed + recoil) * dt;
+                pd.ValueRW.Recoil = recoil * math.exp(-11f * dt);
                 float lim = clock.ArenaHalf - 1f;
                 pos.ValueRW.Value = math.clamp(p, -lim, lim);
 

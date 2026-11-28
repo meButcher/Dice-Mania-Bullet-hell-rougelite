@@ -3,13 +3,22 @@ using UnityEngine;
 
 namespace DiceMania.Presentation
 {
-    /// <summary>Tiny procedural sound bank (no audio files needed). Replace with real clips during the visual/audio pass.</summary>
+    /// <summary>
+    /// Tiny procedural sound bank (no audio files needed). Follows "crack, whiz, thud, ping — few samples, nudge the pitch":
+    /// every sound is a short layered synth, and every play gets a random pitch so repeats never sound identical.
+    /// Replace with real clips during the audio pass.
+    /// </summary>
     public class SfxPlayer : MonoBehaviour
     {
-        public enum Id { Shoot, Hit, Kill, Hurt, Pickup, Explode, EnemyShoot, Copy, Roll, LevelUp, Buy, Click, WaveClear, Boss, Transform, Deny }
+        public enum Id
+        {
+            Shoot, Hit, Kill, Hurt, Pickup, Explode, EnemyShoot, Copy, Roll, LevelUp, Buy, Click, WaveClear, Boss, Transform, Deny,
+            Shell, Crit, Heavy, Shatter, Chest, BigKill,
+        }
 
         AudioClip[] clips;
         float[] lastPlayed;
+        float[] pitchJitter;
         AudioSource[] sources;
         int next;
         public bool Enabled = true;
@@ -22,7 +31,9 @@ namespace DiceMania.Presentation
             int n = Enum.GetValues(typeof(Id)).Length;
             clips = new AudioClip[n];
             lastPlayed = new float[n];
-            sources = new AudioSource[10];
+            pitchJitter = new float[n];
+            for (int i = 0; i < n; i++) pitchJitter[i] = 0.08f;
+            sources = new AudioSource[14];
             for (int i = 0; i < sources.Length; i++)
             {
                 sources[i] = gameObject.AddComponent<AudioSource>();
@@ -31,22 +42,44 @@ namespace DiceMania.Presentation
             }
             try
             {
-                clips[(int)Id.Shoot] = Tone("shoot", 0.06f, 880, 660, 0.25f, Wave.Square);
-                clips[(int)Id.Hit] = Tone("hit", 0.05f, 300, 180, 0.3f, Wave.Noise);
-                clips[(int)Id.Kill] = Tone("kill", 0.12f, 520, 120, 0.35f, Wave.Square);
-                clips[(int)Id.Hurt] = Tone("hurt", 0.2f, 220, 90, 0.6f, Wave.Saw);
-                clips[(int)Id.Pickup] = Tone("pickup", 0.07f, 1200, 1700, 0.25f, Wave.Sine);
-                clips[(int)Id.Explode] = Tone("explode", 0.3f, 160, 40, 0.6f, Wave.Noise);
-                clips[(int)Id.EnemyShoot] = Tone("eshoot", 0.05f, 500, 420, 0.12f, Wave.Sine);
-                clips[(int)Id.Copy] = Tone("copy", 0.5f, 200, 1400, 0.5f, Wave.Saw);
-                clips[(int)Id.Roll] = Tone("roll", 0.25f, 400, 600, 0.35f, Wave.Rattle);
+                // "crack": noise snap over a falling square blip.
+                clips[(int)Id.Shoot] = Make("shoot", 0.08f, (t, r) => Noise(r) * Env(t, 0.004f, 30f) * 0.5f + Square(Sweep(t, 0.08f, 1100f, 420f)) * Env(t, 0.002f, 40f) * 0.35f);
+                // "thud": low sine knock + click.
+                clips[(int)Id.Hit] = Make("hit", 0.09f, (t, r) => Sine(Sweep(t, 0.09f, 190f, 70f)) * Env(t, 0.002f, 35f) * 0.8f + Noise(r) * Env(t, 0.001f, 120f) * 0.4f);
+                // "pop": balloon-ish sweep + noise burst.
+                clips[(int)Id.Kill] = Make("kill", 0.13f, (t, r) => Sine(Sweep(t, 0.13f, 760f, 140f)) * Env(t, 0.002f, 22f) * 0.6f + Noise(r) * Env(t, 0.001f, 45f) * 0.45f);
+                clips[(int)Id.Hurt] = Make("hurt", 0.22f, (t, r) => Saw(Sweep(t, 0.22f, 240f, 80f)) * Env(t, 0.005f, 9f) * 0.6f + Noise(r) * Env(t, 0.001f, 30f) * 0.3f);
+                clips[(int)Id.Pickup] = Make("pickup", 0.08f, (t, r) => Sine(Sweep(t, 0.08f, 1200f, 1800f)) * Env(t, 0.003f, 25f) * 0.4f);
+                // "boom": low rumble + noise body.
+                clips[(int)Id.Explode] = Make("explode", 0.5f, (t, r) => Lowpass(r, Noise(r)) * Env(t, 0.004f, 6f) * 0.9f + Sine(Sweep(t, 0.5f, 110f, 35f)) * Env(t, 0.003f, 7f) * 0.6f);
+                clips[(int)Id.EnemyShoot] = Make("eshoot", 0.06f, (t, r) => Sine(Sweep(t, 0.06f, 560f, 400f)) * Env(t, 0.003f, 40f) * 0.3f);
+                clips[(int)Id.Copy] = Make("copy", 0.5f, (t, r) => Saw(Sweep(t, 0.5f, 200f, 1400f)) * Env(t, 0.01f, 4f) * 0.4f);
+                clips[(int)Id.Roll] = Make("roll", 0.28f, (t, r) => ((int)(t * 46f) % 2 == 0 ? Noise(r) : 0f) * Env(t, 0.002f, 6f) * 0.5f);
                 clips[(int)Id.LevelUp] = Arp("levelup", new[] { 523f, 659f, 784f, 1046f }, 0.07f, 0.4f);
                 clips[(int)Id.Buy] = Arp("buy", new[] { 784f, 1046f }, 0.06f, 0.35f);
-                clips[(int)Id.Click] = Tone("click", 0.03f, 1000, 900, 0.2f, Wave.Square);
+                clips[(int)Id.Click] = Make("click", 0.03f, (t, r) => Square(1000f * t) * Env(t, 0.001f, 80f) * 0.25f);
                 clips[(int)Id.WaveClear] = Arp("wave", new[] { 392f, 523f, 659f, 784f, 1046f }, 0.09f, 0.4f);
-                clips[(int)Id.Boss] = Tone("boss", 0.8f, 90, 60, 0.6f, Wave.Saw);
+                clips[(int)Id.Boss] = Make("boss", 0.9f, (t, r) => Saw(Sweep(t, 0.9f, 90f, 55f)) * Env(t, 0.02f, 2.5f) * 0.6f + Lowpass(r, Noise(r)) * Env(t, 0.01f, 3f) * 0.3f);
                 clips[(int)Id.Transform] = Arp("transform", new[] { 300f, 450f, 600f, 900f, 1200f }, 0.05f, 0.45f);
-                clips[(int)Id.Deny] = Tone("deny", 0.12f, 160, 140, 0.4f, Wave.Square);
+                clips[(int)Id.Deny] = Make("deny", 0.12f, (t, r) => Square(Sweep(t, 0.12f, 170f, 140f)) * Env(t, 0.003f, 12f) * 0.35f);
+                // "ping": tiny metallic partials for shells hitting the floor.
+                clips[(int)Id.Shell] = Make("shell", 0.14f, (t, r) => (Sine(3150f * t) * 0.6f + Sine(4720f * t) * 0.4f + Sine(6900f * t) * 0.2f) * Env(t, 0.0005f, 30f) * 0.35f);
+                // Crit: thud + bright ping on top.
+                clips[(int)Id.Crit] = Make("crit", 0.12f, (t, r) => Sine(Sweep(t, 0.12f, 220f, 80f)) * Env(t, 0.002f, 30f) * 0.6f + Sine(2100f * t) * Env(t, 0.001f, 25f) * 0.35f);
+                // Heavy cannon: deep boom with a crack on top.
+                clips[(int)Id.Heavy] = Make("heavy", 0.35f, (t, r) => Sine(Sweep(t, 0.35f, 120f, 40f)) * Env(t, 0.002f, 9f) * 0.8f + Noise(r) * Env(t, 0.002f, 25f) * 0.5f);
+                // Ice shatter: crackly noise grains + glassy bells.
+                clips[(int)Id.Shatter] = Make("shatter", 0.4f, (t, r) => (r.NextDouble() < 0.18 ? Noise(r) : 0f) * Env(t, 0.002f, 7f) * 0.7f + (Sine(2600f * t) + Sine(3900f * t) * 0.6f) * Env(t, 0.002f, 9f) * 0.2f);
+                clips[(int)Id.Chest] = Arp("chest", new[] { 659f, 880f, 1175f, 1568f }, 0.05f, 0.4f);
+                // Big kill: boom + rising sparkle.
+                clips[(int)Id.BigKill] = Make("bigkill", 0.45f, (t, r) => Sine(Sweep(t, 0.45f, 90f, 40f)) * Env(t, 0.002f, 6f) * 0.7f + Noise(r) * Env(t, 0.001f, 14f) * 0.4f + Sine(Sweep(t, 0.45f, 900f, 1800f)) * Env(t, 0.05f, 6f) * 0.15f);
+
+                pitchJitter[(int)Id.Shell] = 0.22f;
+                pitchJitter[(int)Id.Hit] = 0.12f;
+                pitchJitter[(int)Id.Kill] = 0.14f;
+                pitchJitter[(int)Id.Shoot] = 0.1f;
+                pitchJitter[(int)Id.Shatter] = 0.15f;
+                pitchJitter[(int)Id.LevelUp] = pitchJitter[(int)Id.WaveClear] = pitchJitter[(int)Id.Chest] = 0f;
             }
             catch (Exception e)
             {
@@ -55,7 +88,7 @@ namespace DiceMania.Presentation
             }
         }
 
-        public void Play(Id id, float minInterval = 0.04f, float vol = 1f)
+        public void Play(Id id, float minInterval = 0.04f, float vol = 1f, float pitch = 1f)
         {
             if (!Enabled) return;
             int i = (int)id;
@@ -65,39 +98,52 @@ namespace DiceMania.Presentation
             lastPlayed[i] = Time.unscaledTime;
             var src = sources[next];
             next = (next + 1) % sources.Length;
-            src.pitch = UnityEngine.Random.Range(0.94f, 1.06f);
+            float j = pitchJitter[i];
+            src.pitch = pitch * UnityEngine.Random.Range(1f - j, 1f + j);
             src.PlayOneShot(clip, Volume * vol);
         }
 
-        enum Wave { Sine, Square, Saw, Noise, Rattle }
+        // ------------------------------------------------------------------ synthesis helpers
 
-        static AudioClip Tone(string name, float dur, float f0, float f1, float vol, Wave w)
+        delegate float Sample(float t, System.Random rnd);
+
+        static float lpState;
+
+        static AudioClip Make(string name, float dur, Sample fn)
         {
             int n = Mathf.Max(1, (int)(dur * Rate));
             var data = new float[n];
-            float phase = 0f;
             var rnd = new System.Random(name.GetHashCode());
+            lpState = 0f;
+            float phaseT = 0f;
             for (int i = 0; i < n; i++)
             {
-                float t = i / (float)n;
-                float f = Mathf.Lerp(f0, f1, t);
-                phase += f / Rate;
-                float s;
-                switch (w)
-                {
-                    case Wave.Square: s = Mathf.Sign(Mathf.Sin(phase * Mathf.PI * 2f)) * 0.6f; break;
-                    case Wave.Saw: s = (phase % 1f) * 2f - 1f; break;
-                    case Wave.Noise: s = (float)(rnd.NextDouble() * 2 - 1); break;
-                    case Wave.Rattle: s = ((int)(t * 14) % 2 == 0 ? (float)(rnd.NextDouble() * 2 - 1) : 0f) * 0.8f; break;
-                    default: s = Mathf.Sin(phase * Mathf.PI * 2f); break;
-                }
-                float env = Mathf.Min(1f, t * 40f) * (1f - t) * (1f - t);
-                data[i] = s * env * vol;
+                phaseT = i / (float)Rate;
+                data[i] = Mathf.Clamp(fn(phaseT, rnd), -1f, 1f);
             }
+            // Short fade-out to avoid clicks.
+            int fade = Mathf.Min(n, Rate / 200);
+            for (int i = 0; i < fade; i++) data[n - 1 - i] *= i / (float)fade;
             var clip = AudioClip.Create(name, n, 1, Rate, false);
             clip.SetData(data, 0);
             return clip;
         }
+
+        /// <summary>Attack-then-exponential-decay envelope.</summary>
+        static float Env(float t, float attack, float decay) => Mathf.Min(1f, t / Mathf.Max(1e-4f, attack)) * Mathf.Exp(-t * decay);
+
+        /// <summary>Phase (in cycles) of a linear frequency sweep f0 -> f1 over dur seconds, evaluated at time t.</summary>
+        static float Sweep(float t, float dur, float f0, float f1)
+        {
+            float k = (f1 - f0) / Mathf.Max(1e-4f, dur);
+            return f0 * t + 0.5f * k * t * t;
+        }
+
+        static float Sine(float cycles) => Mathf.Sin(cycles * Mathf.PI * 2f);
+        static float Square(float cycles) => Mathf.Sin(cycles * Mathf.PI * 2f) >= 0f ? 0.6f : -0.6f;
+        static float Saw(float cycles) => (cycles - Mathf.Floor(cycles)) * 2f - 1f;
+        static float Noise(System.Random r) => (float)(r.NextDouble() * 2.0 - 1.0);
+        static float Lowpass(System.Random r, float x) { lpState += (x - lpState) * 0.12f; return lpState * 2.2f; }
 
         static AudioClip Arp(string name, float[] notes, float noteDur, float vol)
         {

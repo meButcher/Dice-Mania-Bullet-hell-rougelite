@@ -99,6 +99,24 @@ namespace DiceMania.Tests
         }
 
         [Test]
+        public void FeelColumnsAndKeysAreParsed()
+        {
+            var pip = GameDatabase.Weapon("pipshot");
+            var cannon = GameDatabase.Weapon("cannon");
+            Assert.IsNotNull(pip);
+            Assert.IsNotNull(cannon);
+            Assert.Greater(pip.Recoil, 0f, "Pip Shot should push the hero back a little");
+            Assert.Greater(cannon.Recoil, pip.Recoil, "the Cannon should kick harder than the Pip Shot");
+            Assert.Greater(cannon.Kick, pip.Kick);
+            Assert.AreEqual(1, pip.Shell);
+            Assert.AreEqual(2, cannon.Shell);
+            Assert.Less(pip.Knockback, cannon.Knockback, "bullets shove less than explosions");
+            foreach (var key in new[] { "HitStopHurt", "HitStopKill", "HitStopElite", "HitStopBoss", "HitStopCooldown", "CorpseFreeze",
+                         "CorpseThrow", "SplatLife", "ShellLife", "ScreenShake", "CameraKick", "Recoil", "Rumble", "DamageNumbers" })
+                Assert.IsTrue(GameDatabase.Config.ContainsKey(key), "Config.csv is missing feel key " + key);
+        }
+
+        [Test]
         public void XpCurveIncreases()
         {
             Assert.Less(RunState.XpForLevel(1), RunState.XpForLevel(2));

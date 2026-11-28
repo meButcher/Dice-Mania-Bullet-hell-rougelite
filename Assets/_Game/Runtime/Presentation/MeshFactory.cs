@@ -115,9 +115,46 @@ namespace DiceMania.Presentation
             return m;
         }
 
-        public static Mesh Quad(float size)
+        /// <summary>Irregular flat blob (radius ~0.5) with a few satellite drops, facing up. Used for splats and scorch marks.</summary>
+        public static Mesh Splat()
         {
-            var m = new Mesh { name = "DM_Ground" };
+            var rnd = new System.Random(7);
+            var v = new List<Vector3>();
+            var tr = new List<int>();
+            void Blob(Vector3 c, float r, int seg)
+            {
+                int center = v.Count;
+                v.Add(c);
+                float phase = (float)rnd.NextDouble() * 6.28f;
+                for (int i = 0; i <= seg; i++)
+                {
+                    float a = i * Mathf.PI * 2f / seg;
+                    float k = i == seg ? 0f : 0.72f + 0.28f * Mathf.Sin(a * 3f + phase) * (float)rnd.NextDouble() + 0.12f * (float)rnd.NextDouble();
+                    if (i == seg) { v.Add(v[center + 1]); }
+                    else v.Add(c + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * r * k);
+                    if (i > 0) tr.AddRange(new[] { center, center + i + 1, center + i });
+                }
+            }
+            Blob(Vector3.zero, 0.42f, 20);
+            for (int d = 0; d < 4; d++)
+            {
+                float a = d * 1.7f + 0.4f;
+                float dist = 0.42f + 0.06f * d;
+                Blob(new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * dist, 0.05f + 0.025f * d, 8);
+            }
+            var m = new Mesh { name = "DM_Splat" };
+            m.SetVertices(v);
+            m.SetTriangles(tr, 0);
+            var normals = new Vector3[v.Count];
+            for (int i = 0; i < normals.Length; i++) normals[i] = Vector3.up;
+            m.normals = normals;
+            m.RecalculateBounds();
+            return m;
+        }
+
+        public static Mesh Quad(float size, string name = "DM_Ground")
+        {
+            var m = new Mesh { name = name };
             float h = size * 0.5f;
             m.vertices = new[] { new Vector3(-h, 0, -h), new Vector3(-h, 0, h), new Vector3(h, 0, h), new Vector3(h, 0, -h) };
             m.triangles = new[] { 0, 1, 2, 0, 2, 3 };

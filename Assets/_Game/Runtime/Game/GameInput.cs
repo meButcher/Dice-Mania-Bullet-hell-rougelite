@@ -13,9 +13,26 @@ namespace DiceMania.Game
         public static bool LmbDown, LmbHeld, LmbUp, RmbDown, Roll, Pause, Reload, Confirm;
         public static int NumberDown; // 1..9, 0 = none
 
+        /// <summary>True while a gamepad drives aiming (right trigger held): <see cref="PadAim"/> replaces the mouse.</summary>
+        public static bool PadAiming;
+        public static Vector2 PadAim;
+
+        /// <summary>
+        /// Automated input (play-mode smoke tests, attract mode). When set it replaces the devices: edge flags are
+        /// cleared every frame and the callback writes Move / MousePos / Roll / Lmb* itself.
+        /// </summary>
+        public static System.Action Bot;
+
         public static void Update()
         {
             NumberDown = 0;
+            if (Bot != null)
+            {
+                Roll = Pause = Reload = Confirm = LmbDown = LmbUp = RmbDown = false;
+                Bot();
+                if (Move.sqrMagnitude > 1f) Move.Normalize();
+                return;
+            }
 #if ENABLE_INPUT_SYSTEM
             var k = Keyboard.current;
             var m = Mouse.current;
@@ -46,6 +63,30 @@ namespace DiceMania.Game
                 RmbDown = m.rightButton.wasPressedThisFrame;
             }
             else { LmbDown = LmbHeld = LmbUp = RmbDown = false; }
+
+            // Gamepad: left stick move, A / RB roll, Start pause, D-pad picks cards, hold RT + right stick to aim a Copy shot.
+            var g = Gamepad.current;
+            PadAiming = false;
+            if (g != null)
+            {
+                Vector2 ls = g.leftStick.ReadValue();
+                if (ls.sqrMagnitude > 0.04f) Move += ls;
+                Roll |= g.buttonSouth.wasPressedThisFrame || g.rightShoulder.wasPressedThisFrame;
+                Pause |= g.startButton.wasPressedThisFrame;
+                Confirm |= g.buttonSouth.wasPressedThisFrame || g.startButton.wasPressedThisFrame;
+                if (g.dpad.left.wasPressedThisFrame) NumberDown = 1;
+                else if (g.dpad.up.wasPressedThisFrame) NumberDown = 2;
+                else if (g.dpad.right.wasPressedThisFrame) NumberDown = 3;
+                else if (g.dpad.down.wasPressedThisFrame) NumberDown = 4;
+                PadAim = g.rightStick.ReadValue();
+                if (g.rightTrigger.isPressed || g.rightTrigger.wasReleasedThisFrame)
+                {
+                    PadAiming = true;
+                    LmbDown |= g.rightTrigger.wasPressedThisFrame;
+                    LmbHeld |= g.rightTrigger.isPressed;
+                    LmbUp |= g.rightTrigger.wasReleasedThisFrame;
+                }
+            }
 #else
             Move = Vector2.zero;
             if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) Move.y += 1;
