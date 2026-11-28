@@ -13,7 +13,7 @@ namespace DiceMania.Presentation
         public enum Id
         {
             Shoot, Hit, Kill, Hurt, Pickup, Explode, EnemyShoot, Copy, Roll, LevelUp, Buy, Click, WaveClear, Boss, Transform, Deny,
-            Shell, Crit, Heavy, Shatter, Chest, BigKill,
+            Shell, Crit, Heavy, Shatter, Chest, BigKill, Swing, Ready,
         }
 
         AudioClip[] clips;
@@ -74,6 +74,13 @@ namespace DiceMania.Presentation
                 // Big kill: boom + rising sparkle.
                 clips[(int)Id.BigKill] = Make("bigkill", 0.45f, (t, r) => Sine(Sweep(t, 0.45f, 90f, 40f)) * Env(t, 0.002f, 6f) * 0.7f + Noise(r) * Env(t, 0.001f, 14f) * 0.4f + Sine(Sweep(t, 0.45f, 900f, 1800f)) * Env(t, 0.05f, 6f) * 0.15f);
 
+                // "whoosh": a noise swell that rises in pitch (melee swing).
+                clips[(int)Id.Swing] = Make("swing", 0.18f, (t, r) => Lowpass(r, Noise(r)) * Mathf.Sin(Mathf.Clamp01(t / 0.18f) * Mathf.PI) * 0.9f
+                                                                      + Sine(Sweep(t, 0.18f, 300f, 900f)) * Mathf.Sin(Mathf.Clamp01(t / 0.18f) * Mathf.PI) * 0.12f);
+                // Ability ready again: a short bright double tick.
+                clips[(int)Id.Ready] = Make("ready", 0.12f, (t, r) => (Sine(1568f * t) * Env(t, 0.001f, 40f) + Sine(2093f * t) * Env(Mathf.Max(0f, t - 0.05f), 0.001f, 40f) * (t > 0.05f ? 1f : 0f)) * 0.3f);
+                pitchJitter[(int)Id.Ready] = 0f;
+                pitchJitter[(int)Id.Swing] = 0.12f;
                 pitchJitter[(int)Id.Shell] = 0.22f;
                 pitchJitter[(int)Id.Hit] = 0.12f;
                 pitchJitter[(int)Id.Kill] = 0.14f;

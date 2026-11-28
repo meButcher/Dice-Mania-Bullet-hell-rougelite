@@ -46,7 +46,10 @@ bounce enemies around instead of passing through. So bullets get a **slight** sh
 | Charge → burst | Rolling the dice pulls streaks into the hero during the tumble, then the face fires with a ring + flash in its colour |
 | Ice spikes | Frost Nova: rings of spikes that grow outward, cracked floor, mist, spikes shatter |
 | Meteor | A rock falls on the telegraph ring, then flash + shockwave + embers + scorch mark |
-| Anime hit | Copy hit and boss kills: freeze, white flash, burst lines, camera punch-in |
+| Anime hit | Morph hit and boss kills: freeze, white flash, burst lines, camera punch-in |
+| Bullet face (gun ability) | Each click fires orange homing missiles: the gun kicks and flashes in the face colour, the hero is shoved back, the camera kicks + vibrates, a big shell drops |
+| Melee face | A two-layer slash arc (white core + red streaks, alternating sides) toward the cursor; the hero lunges into it; connecting hits get sparks, a tiny freeze and rumble |
+| Ability cooldown | The ring around the HUD die fills back clockwise in the face colour, pulses + chimes when ready, shakes if you click too early; the gun dims while it recharges |
 | Chest | Chests wobble faster as you approach, with a glow; opening one bursts out popping stars |
 | Readability | Enemies brighten just before they fire; enemy bullets get a soft red halo; hurt = red vignette + HP bar ghost; low HP pulses |
 

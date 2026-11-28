@@ -1,12 +1,13 @@
-Id,Name,Color,Description,MaxLevel,Value,ValuePerLevel,Count,CountPerLevel,Radius,RadiusPerLevel,Duration,DurationPerLevel,HpCost,UnlockCost,ShopWeight
-bolt,Bolt,#3EF2E0,"Fires {count} homing missiles that deal {value} damage",5,18,8,6,2,0,0,0,0,0,0,10
-copy,Copy,#FF4F6D,"Gain {count} Copy charge. Hold LMB to target an enemy and release: a slow-motion shot consumes it and you become it for {duration}s (attacks x{value})",5,1,0.25,1,0,5,0.5,15,3,0,0,8
-mend,Mend,#B8F23E,"Healing ring (radius {radius}) heals {value} HP per second for {duration}s",5,4,2,0,0,4,0.5,6,1,0,0,8
-twin,Twin,#F2C23E,"Summon {count} clone(s) for {duration}s that shoot for {value} damage",5,10,4,1,0.5,0,0,8,2,0,0,8
-devour,Devour,#FF3EF2,"Expanding dome (radius {radius}) eats enemies and enemy bullets dealing {value}/tick. Costs {hpcost} HP",5,40,15,0,0,7,1.5,2.5,0.3,10,0,7
-reroll,Reroll,#9B5BFF,"Gain {count} roll charges and slow time for {duration}s",5,0,0,2,0.5,0,0,2,0.5,0,0,6
-meteor,Meteor,#FF8A3E,"Call {count} meteors on enemies dealing {value} damage in radius {radius}",5,60,25,3,1,3,0.4,0,0,0,60,6
-frost,Frost Nova,#7FD8FF,"Freeze enemies within {radius} for {duration}s and deal {value} damage",5,10,5,0,0,9,1.5,2.5,0.5,0,60,6
-magnet,Magnet,#FFFFFF,"Pull every pickup on the map to you",3,0,0,0,0,0,0,0,0,0,40,5
-aegis,Aegis,#FFD86B,"Invulnerable for {duration}s with an aura dealing {value} damage",5,8,4,0,0,3,0.3,3,0.6,0,80,5
-goldrush,Gold Rush,#FFC800,"Every kill drops gold for {duration}s",5,1,0.5,0,0,0,0,8,2,0,80,5
+Id,Name,Color,Description,MaxLevel,Value,ValuePerLevel,Count,CountPerLevel,Radius,RadiusPerLevel,Duration,DurationPerLevel,HpCost,UnlockCost,ShopWeight,Cooldown,CooldownPerLevel,Uses,Auto
+bolt,Bullet,#3EF2E0,Click to fire {count} missile(s) at the cursor for {value} damage,5,22,8,1,0.5,0,0,0,0,0,0,10,0.4,-0.03,0,1
+melee,Melee,#FF4F4F,Click to slash in front of you for {value} damage (reach {radius}),5,30,12,0,0,2.8,0.3,0,0,0,0,8,0.45,-0.03,0,1
+copy,Morph,#FF7EC8,Hold on an enemy and release: a slow-motion shot consumes it and you become it for {duration}s (attacks x{value}),5,1,0.25,1,0,5,0.5,15,3,0,0,8,14,-1.5,0,0
+mend,Heal,#B8F23E,Click for a healing ring (radius {radius}) that heals {value} HP/s for {duration}s,5,4,2,0,0,4,0.5,6,1,0,0,8,8,-0.6,0,0
+twin,Duplicate,#F2C23E,Click to summon {count} clone(s) for {duration}s that shoot for {value} damage,5,10,4,1,0.5,0,0,8,2,0,0,8,9,-0.8,0,0
+devour,Devour,#FF3EF2,Click for an expanding dome (radius {radius}) that eats enemies and bullets for {value}/tick. Costs {hpcost} HP,5,40,15,0,0,7,1.5,2.5,0.3,10,0,7,10,-0.8,0,0
+reroll,Refresh,#9B5BFF,Click to refill your dice rolls to full and slow time for {duration}s (one use),5,0,0,0,0,0,0,2,0.5,0,0,6,0,0,1,0
+meteor,Meteor,#FF8A3E,"Click to call {count} meteors around the cursor, {value} damage in radius {radius}",5,60,25,3,1,3,0.4,0,0,0,60,6,7,-0.5,0,0
+frost,Frost Nova,#7FD8FF,Click to freeze enemies within {radius} for {duration}s and deal {value} damage,5,10,5,0,0,9,1.5,2.5,0.5,0,60,6,8,-0.6,0,0
+magnet,Magnet,#FFFFFF,Click to pull every pickup on the map to you (one use),3,0,0,0,0,0,0,0,0,0,40,5,0,0,1,0
+aegis,Aegis,#FFD86B,Click to become invulnerable for {duration}s with an aura dealing {value} damage,5,8,4,0,0,3,0.3,3,0.6,0,80,5,14,-1,0,0
+goldrush,Gold Rush,#FFC800,Click: every kill drops gold for {duration}s (one use),5,1,0.5,0,0,0,0,8,2,0,80,5,0,0,1,0

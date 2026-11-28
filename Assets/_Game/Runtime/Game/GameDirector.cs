@@ -21,6 +21,7 @@ namespace DiceMania.Game
         public float Life;
         public float Size;
         public float Pop;       // extra scale at spawn that settles in ~0.12 s
+        public bool AbilityName; // the rolled ability's name over the hero (a new roll replaces it)
     }
 
     /// <summary>
@@ -41,6 +42,8 @@ namespace DiceMania.Game
         public CameraRig Rig { get; private set; }
         public SfxPlayer Audio { get; private set; }
         public MusicPlayer Music { get; private set; }
+        /// <summary>The 3D dice drawn in the HUD (bottom-right glass circle).</summary>
+        public DiceView DiceCubes { get; private set; }
 
         public readonly List<FloatingText> Floaters = new List<FloatingText>();
         public string Banner = "";
@@ -80,8 +83,10 @@ namespace DiceMania.Game
             Audio.Enabled = MetaProgress.Data.SfxOn;
             Music = gameObject.AddComponent<MusicPlayer>();
             Music.SetEnabled(MetaProgress.Data.MusicOn);
+            DiceCubes = DiceView.Create(transform);
             ApplyFeelSettings();
             gameObject.AddComponent<GameUI>();
+            HudShots.StartIfRequested(this);
         }
 
         void Start()
@@ -175,7 +180,11 @@ namespace DiceMania.Game
             if (Ecs == null || !Ecs.Ready) return;
 
 #if UNITY_EDITOR
-            if (GameInput.Reload) HotReloadData();
+            if (GameInput.Reload || GameDatabase.ReloadRequested)
+            {
+                GameDatabase.ReloadRequested = false;
+                HotReloadData();
+            }
 #endif
             switch (State)
             {
@@ -209,6 +218,8 @@ namespace DiceMania.Game
             }
 
             UpdateFloaters(rdt);
+            bool hudDice = Run != null && State != GameState.MainMenu && State != GameState.Forge;
+            DiceCubes.Sync(hudDice ? Run.Dice : null);
             if (Ecs.Player != Entity.Null)
             {
                 var p = Ecs.PlayerPos;
@@ -283,6 +294,7 @@ namespace DiceMania.Game
             Ecs.SetPlayerInput(new float2(GameInput.Move.x, GameInput.Move.y), new float2(mw.x, mw.z));
 
             UpdateRolling(rdt);
+            UpdateAbility(rdt, mw);
             UpdateCopy(rdt, mw);
             ProcessEcsEvents();
             if (State != GameState.Playing) return;
@@ -459,6 +471,12 @@ namespace DiceMania.Game
                 foreach (var p in Run.Passives) p.Def = GameDatabase.Passive(p.Def.Id) ?? p.Def;
                 for (int i = 0; i < Run.Relics.Count; i++) Run.Relics[i] = GameDatabase.Relic(Run.Relics[i].Id) ?? Run.Relics[i];
                 foreach (var d in Run.Dice) foreach (var s in d.Slots) s.Face = GameDatabase.Face(s.Face.Id) ?? s.Face;
+                if (Ability != null)
+                {
+                    Ability.Face = GameDatabase.Face(Ability.Face.Id) ?? Ability.Face;
+                    Ability.Cooldown = Ability.Face.CooldownAt(Ability.Level);
+                    Ability.CooldownLeft = Mathf.Min(Ability.CooldownLeft, Ability.Cooldown);
+                }
                 RefreshBuild();
             }
             Ecs.ApplyConfig(Ecs.Get<GameClock>().Running != 0);

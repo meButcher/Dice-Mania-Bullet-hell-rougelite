@@ -20,8 +20,9 @@ namespace DiceMania.Game
         float W => Screen.width / scale;
         const float H = 720f;
 
-        GUIStyle label, labelC, labelR, big, huge, small, button, card, tiny;
-        Texture2D white, vignette, burst;
+        GUIStyle label, labelC, labelR, big, huge, small, button, buttonDark, card, tiny;
+        GUIStyle tinyC, tinyCBold, smallR, smallBoldC, timerStyle, scoreStyle, abilityStyle, cooldownStyle, endTitle;
+        Texture2D white, vignette, burst, glass, ringTex, disc;
         bool stylesReady;
         float hpGhost = 1f, lastHpFrac = 1f, lastHpDrop;
 
@@ -41,11 +42,74 @@ namespace DiceMania.Game
             big = new GUIStyle(labelC) { fontSize = 28, fontStyle = FontStyle.Bold };
             huge = new GUIStyle(labelC) { fontSize = 64, fontStyle = FontStyle.Bold };
             button = new GUIStyle(GUI.skin.button) { fontSize = 18, fontStyle = FontStyle.Bold };
+            button.normal.background = button.hover.background = button.active.background = null; // flat, like the original
             button.normal.textColor = button.hover.textColor = button.active.textColor = Color.white;
             card = new GUIStyle(label) { fontSize = 15, alignment = TextAnchor.UpperLeft, padding = new RectOffset(10, 10, 8, 8) };
+            // The original's flat slate-blue buttons with dark text.
+            buttonDark = new GUIStyle(GUI.skin.button) { fontSize = 20, fontStyle = FontStyle.Bold };
+            buttonDark.normal.background = buttonDark.hover.background = buttonDark.active.background = null;
+            buttonDark.normal.textColor = buttonDark.hover.textColor = buttonDark.active.textColor = new Color(0.06f, 0.07f, 0.13f);
+            tinyC = new GUIStyle(tiny) { alignment = TextAnchor.MiddleCenter };
+            tinyCBold = new GUIStyle(tinyC) { fontSize = 14, fontStyle = FontStyle.Bold };
+            smallR = new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontSize = 15 };
+            smallBoldC = new GUIStyle(labelC) { fontSize = 17, fontStyle = FontStyle.Bold };
+            timerStyle = new GUIStyle(labelC) { fontSize = 24, fontStyle = FontStyle.Bold };
+            scoreStyle = new GUIStyle(labelR) { fontSize = 25, fontStyle = FontStyle.Bold };
+            abilityStyle = new GUIStyle(labelR) { fontSize = 24, fontStyle = FontStyle.Bold };
+            cooldownStyle = new GUIStyle(labelC) { fontSize = 28, fontStyle = FontStyle.Bold };
+            endTitle = new GUIStyle(huge) { fontSize = 72 };
             vignette = MakeVignette(128);
             burst = MakeBurstLines(256);
+            glass = MakeGlass(256);
+            ringTex = MakeRing(64, 0.76f, 0.97f, 0.4f);
+            disc = MakeRing(64, 0f, 0.97f, 1f);
             stylesReady = true;
+        }
+
+        /// <summary>The original's glassy circle: faint tinted body, bright rim, soft highlight at the top left.</summary>
+        static Texture2D MakeGlass(int size)
+        {
+            var t = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "DM_Glass" };
+            var px = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x + 0.5f) / size * 2f - 1f, dy = (y + 0.5f) / size * 2f - 1f; // dy > 0 = top
+                float r = Mathf.Sqrt(dx * dx + dy * dy);
+                float aa = Mathf.Clamp01((1f - r) * size * 0.5f);
+                if (aa <= 0f) { px[y * size + x] = new Color32(0, 0, 0, 0); continue; }
+                float rim = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.88f, 0.985f, r)) * (1f - Mathf.InverseLerp(0.985f, 1f, r) * 0.3f);
+                float hx = dx + 0.32f, hy = dy - 0.42f;
+                float highlight = Mathf.Clamp01(1f - Mathf.Sqrt(hx * hx + hy * hy) * 1.7f) * 0.2f;
+                float body = 0.1f + 0.08f * Mathf.Clamp01(0.5f + dy * 0.5f);
+                float a = Mathf.Clamp01(body + rim * 0.55f + highlight) * aa;
+                Color c = Color.Lerp(new Color(0.62f, 0.68f, 0.85f), Color.white, Mathf.Clamp01(rim + highlight * 2f));
+                px[y * size + x] = new Color(c.r, c.g, c.b, a);
+            }
+            t.SetPixels32(px);
+            t.Apply();
+            return t;
+        }
+
+        /// <summary>White ring (or filled disc when inner = 0) with a darker translucent middle, anti-aliased.</summary>
+        static Texture2D MakeRing(int size, float inner, float outer, float middleAlpha)
+        {
+            var t = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "DM_Ring" };
+            var px = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x + 0.5f) / size * 2f - 1f, dy = (y + 0.5f) / size * 2f - 1f;
+                float r = Mathf.Sqrt(dx * dx + dy * dy);
+                float px1 = 2f / size;
+                float band = Mathf.Clamp01((r - inner) / px1 + 0.5f) * Mathf.Clamp01((outer - r) / px1 + 0.5f);
+                float mid = r < inner ? middleAlpha * 0.35f : 0f;
+                Color c = band > 0f ? Color.white : new Color(0f, 0f, 0f, 1f);
+                px[y * size + x] = new Color(c.r, c.g, c.b, Mathf.Max(band, mid));
+            }
+            t.SetPixels32(px);
+            t.Apply();
+            return t;
         }
 
         /// <summary>White radial edge gradient (tinted red for hurt / low HP).</summary>
@@ -109,13 +173,16 @@ namespace DiceMania.Game
             Fill(new Rect(r.x, r.y, r.width * Mathf.Clamp01(frac), r.height), fg);
         }
 
+        static readonly Color Slate = new Color(0.37f, 0.44f, 0.7f, 1f);
+
+        /// <summary>Untinted buttons use the original game's look (flat slate blue, dark text); tinted ones keep white text.</summary>
         bool Button(Rect r, string text, bool enabled = true, Color? tint = null)
         {
             var old = GUI.enabled;
             GUI.enabled = enabled;
-            Fill(r, enabled ? (tint ?? Accent) : new Color(0.25f, 0.25f, 0.3f));
-            if (r.Contains(Event.current.mousePosition) && enabled) Fill(r, new Color(1, 1, 1, 0.12f));
-            bool clicked = GUI.Button(r, text, button);
+            Fill(r, enabled ? (tint ?? Slate) : new Color(0.25f, 0.25f, 0.3f));
+            if (r.Contains(Event.current.mousePosition) && enabled) Fill(r, new Color(1, 1, 1, 0.14f));
+            bool clicked = GUI.Button(r, text, tint.HasValue || !enabled ? button : buttonDark);
             GUI.enabled = old;
             if (clicked && D != null) D.Audio.Play(SfxPlayer.Id.Click, 0.02f, 0.6f);
             return clicked;
@@ -155,8 +222,9 @@ namespace DiceMania.Game
                 case GameState.LevelUp: DrawHud(); DrawLevelUp(); break;
                 case GameState.Forge: DrawForge(); break;
                 case GameState.Paused: DrawHud(); DrawPause(); break;
-                case GameState.GameOver: DrawEnd(false); break;
-                case GameState.Victory: DrawEnd(true); break;
+                // Like the original, the HUD (empty HP bar, wave, score, rolls, die) stays visible behind the end screen.
+                case GameState.GameOver: DrawHud(); DrawEnd(false); break;
+                case GameState.Victory: DrawHud(); DrawEnd(true); break;
             }
             if (D.BannerTime > 0f && D.State != GameState.MainMenu)
             {
@@ -229,7 +297,7 @@ namespace DiceMania.Game
             GUI.color = oldC;
         }
 
-        // ================================================================== HUD
+        // ================================================================== HUD (laid out like the original Dice Mania)
 
         void DrawHud()
         {
@@ -237,11 +305,7 @@ namespace DiceMania.Game
             if (run == null || D.Ecs == null || D.Ecs.Player == Unity.Entities.Entity.Null) return;
             var hp = D.Ecs.PlayerHealth;
 
-            // XP bar across the top.
-            Bar(new Rect(0, 0, W, 10), run.Xp / Mathf.Max(1f, run.XpToNext), new Color(0.3f, 0.6f, 1f), new Color(0, 0, 0, 0.6f));
-            Shadowed(new Rect(8, 10, 120, 22), "LV " + run.Level, small, new Color(0.6f, 0.8f, 1f));
-
-            // HP: the bar shakes when hit and a white "ghost" drains behind it, so you can read how much you lost.
+            // ---- Top left: the white "+" and white HP bar of the original; a red ghost drains behind it when hit ----
             float hpFrac = Mathf.Clamp01(hp.Value / Mathf.Max(1f, hp.Max));
             if (Event.current.type == EventType.Repaint)
             {
@@ -252,128 +316,213 @@ namespace DiceMania.Game
             }
             float jolt = D.HurtFlash * 5f;
             Vector2 off = jolt > 0.05f ? new Vector2(Random.Range(-jolt, jolt), Random.Range(-jolt, jolt)) : Vector2.zero;
-            Fill(new Rect(14 + off.x, 34 + off.y, 16, 16), Color.white);
-            var hpRect = new Rect(38 + off.x, 36 + off.y, 260, 14);
-            Fill(hpRect, new Color(0.2f, 0.05f, 0.08f, 0.8f));
-            Fill(new Rect(hpRect.x, hpRect.y, hpRect.width * hpGhost, hpRect.height), new Color(1f, 0.92f, 0.85f, 0.9f));
-            Fill(new Rect(hpRect.x, hpRect.y, hpRect.width * hpFrac, hpRect.height), Color.Lerp(new Color(1f, 0.3f, 0.35f), Color.white, D.HurtFlash * 0.6f));
-            Shadowed(new Rect(304 + off.x, 30 + off.y, 160, 24), $"{Mathf.CeilToInt(hp.Value)}/{Mathf.CeilToInt(hp.Max)}", small, Color.white);
+            DrawCross(new Rect(16 + off.x, 13 + off.y, 30, 30), Color.Lerp(Color.white, new Color(1f, 0.35f, 0.35f), D.HurtFlash));
+            var hpRect = new Rect(58 + off.x, 21 + off.y, 370, 15);
+            Fill(hpRect, new Color(1f, 1f, 1f, 0.13f));
+            Fill(new Rect(hpRect.x, hpRect.y, hpRect.width * hpGhost, hpRect.height), new Color(1f, 0.32f, 0.32f, 0.9f));
+            Color hpCol = hpFrac < 0.3f ? Color.Lerp(Color.white, new Color(1f, 0.45f, 0.45f), 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 8f)) : Color.white;
+            Fill(new Rect(hpRect.x, hpRect.y, hpRect.width * hpFrac, hpRect.height), hpCol);
+            Shadowed(new Rect(hpRect.xMax + 8, 16 + off.y, 120, 24), $"{Mathf.CeilToInt(hp.Value)}/{Mathf.CeilToInt(hp.Max)}", small, new Color(1, 1, 1, 0.75f));
 
-            // Weapons + passives.
-            float x = 14;
+            // XP + level, weapons, passives (roguelite extras, kept small under the HP bar).
+            Bar(new Rect(58, 40, 370, 4), run.Xp / Mathf.Max(1f, run.XpToNext), new Color(0.35f, 0.65f, 1f), new Color(1, 1, 1, 0.08f));
+            Shadowed(new Rect(58, 46, 60, 20), "LV " + run.Level, tiny, new Color(0.6f, 0.8f, 1f));
+            float x = 100;
             foreach (var w in run.Weapons)
             {
-                Fill(new Rect(x, 58, 30, 30), w.Def.Color * 0.8f);
-                Text(new Rect(x, 58, 30, 30), w.Def.IsEvolution ? "★" : w.Level.ToString(), labelC, Color.black);
-                x += 34;
-            }
-            x = 14;
-            foreach (var p in run.Passives)
-            {
-                Fill(new Rect(x, 92, 22, 22), new Color(0.5f, 0.7f, 1f, 0.7f));
-                Text(new Rect(x, 92, 22, 22), p.Level.ToString(), labelC, Color.black);
+                Fill(new Rect(x, 47, 22, 22), w.Def.Color * 0.85f);
+                Text(new Rect(x, 47, 22, 22), w.Def.IsEvolution ? "*" : w.Level.ToString(), tinyC, Color.black);
                 x += 25;
             }
-            if (run.Relics.Count > 0) Shadowed(new Rect(14, 116, 300, 20), "Relics: " + run.Relics.Count, tiny, new Color(1f, 0.8f, 0.4f));
+            x += 8;
+            foreach (var p in run.Passives)
+            {
+                Fill(new Rect(x, 50, 16, 16), new Color(0.5f, 0.7f, 1f, 0.7f));
+                Text(new Rect(x, 50, 16, 16), p.Level.ToString(), tinyC, Color.black);
+                x += 19;
+            }
+            if (run.Relics.Count > 0) Shadowed(new Rect(100, 70, 300, 20), "Relics: " + run.Relics.Count, tiny, new Color(1f, 0.8f, 0.4f));
 
-            // Wave / timer / boss.
-            string waveText = "WAVE " + run.Wave.ToString("00") + (run.Wave > D.FinalWave ? " (ENDLESS)" : "");
-            Shadowed(new Rect(0, 14, W, 30), waveText, big, Color.white);
+            // ---- Top centre: "Wave: 01" and the countdown ----
+            string waveText = "Wave: " + run.Wave.ToString("00") + (run.Wave > D.FinalWave ? "  (endless)" : "");
+            Shadowed(new Rect(0, 12, W, 36), waveText, big, Color.white);
             if (D.BossAlive)
             {
-                Shadowed(new Rect(0, 46, W, 24), D.BossName, labelC, new Color(1f, 0.5f, 0.75f));
-                Bar(new Rect(W / 2 - 250, 72, 500, 14), D.BossHpFrac, new Color(1f, 0.25f, 0.6f), new Color(0.15f, 0.02f, 0.1f, 0.85f));
+                Shadowed(new Rect(0, 48, W, 24), D.BossName, labelC, new Color(1f, 0.5f, 0.75f));
+                Bar(new Rect(W / 2 - 250, 74, 500, 12), D.BossHpFrac, new Color(1f, 0.25f, 0.6f), new Color(0.15f, 0.02f, 0.1f, 0.85f));
             }
-            else if (D.State == GameState.Playing)
-                Shadowed(new Rect(0, 46, W, 26), Mathf.CeilToInt(Mathf.Max(0, D.WaveTimeLeft)) + "s", labelC, new Color(1, 1, 1, 0.85f));
+            else if (D.State == GameState.WaveClear)
+                Shadowed(new Rect(0, 50, W, 30), "Break", timerStyle, Color.white);
+            else
+                Shadowed(new Rect(0, 50, W, 30), Mathf.CeilToInt(Mathf.Max(0, D.WaveTimeLeft)) + "s", timerStyle, Color.white);
 
-            // Score / gold / kills.
-            Shadowed(new Rect(W - 260, 14, 245, 24), "Score: " + run.Score, labelR, Color.white);
-            Shadowed(new Rect(W - 260, 38, 245, 24), "Gold: " + run.Gold, labelR, new Color(1f, 0.82f, 0.25f));
-            Shadowed(new Rect(W - 260, 62, 245, 24), "Kills: " + run.Kills, labelR, new Color(1, 1, 1, 0.7f));
+            // ---- Top right: score (gold / kills under it) ----
+            Shadowed(new Rect(W - 320, 16, 300, 34), "Score: " + run.Score, scoreStyle, Color.white);
+            Shadowed(new Rect(W - 320, 50, 300, 22), "Gold: " + run.Gold, smallR, new Color(1f, 0.82f, 0.25f));
+            Shadowed(new Rect(W - 320, 70, 300, 22), "Kills: " + run.Kills, smallR, new Color(1, 1, 1, 0.6f));
 
-            // Rolls (bottom left): the counter punches when you roll.
-            Fill(new Rect(14, H - 98, 84, 84), PanelLight);
-            {
-                var baseM = GUI.matrix;
-                float pop = 1f + 0.35f * D.RollPunch;
-                var pivot = new Vector3(56, H - 66, 0);
-                GUI.matrix = baseM * Matrix4x4.TRS(pivot, Quaternion.identity, new Vector3(pop, pop, 1f)) * Matrix4x4.Translate(-pivot);
-                Shadowed(new Rect(14, H - 98, 84, 64), run.RollsLeft.ToString(), huge, run.RollsLeft > 0 ? Color.white : new Color(1, 0.4f, 0.4f));
-                GUI.matrix = baseM;
-            }
-            float recharge = GameDatabase.Cfg("RollRechargeSeconds", 25);
-            if (recharge > 0) Bar(new Rect(18, H - 28, 76, 6), run.RollRechargeTimer / recharge, new Color(0.7f, 0.5f, 1f), new Color(0, 0, 0, 0.5f));
-            Shadowed(new Rect(104, H - 46, 220, 22), "Dice rolls  [SPACE]", small, new Color(1, 1, 1, 0.8f));
-            if (run.CopyCharges > 0)
-                Shadowed(new Rect(104, H - 70, 320, 22), $"COPY x{run.CopyCharges}  [hold LMB on enemy]", small, new Color(1f, 0.45f, 0.55f));
+            DrawRollsCorner(run);
+            DrawDieCorner(run);
 
-            DrawDiceTray();
-
-            // Copy form timer.
+            // Status lines above the die: Morph form, buffs.
+            float sy = H - 304;
             var copy = D.Ecs.PlayerCopy;
             if (copy.Time > 0f && copy.EnemyDef >= 0 && copy.EnemyDef < GameDatabase.Enemies.Count)
             {
                 var def = GameDatabase.Enemies[copy.EnemyDef];
-                Shadowed(new Rect(W - 300, H - 70, 285, 22), "Copied: " + def.Name, labelR, def.Color);
-                Bar(new Rect(W - 300, H - 44, 285, 10), copy.Time / Mathf.Max(0.01f, copy.TotalTime), def.Color, new Color(0, 0, 0, 0.6f));
+                Shadowed(new Rect(W - 420, sy, 400, 22), "Morphed into: " + def.Name, smallR, def.Color);
+                Bar(new Rect(W - 260, sy + 22, 240, 6), copy.Time / Mathf.Max(0.01f, copy.TotalTime), def.Color, new Color(0, 0, 0, 0.6f));
+                sy -= 34;
             }
             var buffs = D.Ecs.Get<Buffs>();
-            float by = H - 100;
-            if (buffs.Invuln > 0f) { Shadowed(new Rect(W - 300, by, 285, 22), $"Aegis {buffs.Invuln:0.0}s", labelR, new Color(1f, 0.85f, 0.4f)); by -= 22; }
-            if (buffs.GoldRush > 0f) { Shadowed(new Rect(W - 300, by, 285, 22), $"Gold Rush {buffs.GoldRush:0.0}s", labelR, new Color(1f, 0.8f, 0f)); }
+            if (buffs.Invuln > 0f) { Shadowed(new Rect(W - 420, sy, 400, 22), $"Aegis {buffs.Invuln:0.0}s", smallR, new Color(1f, 0.85f, 0.4f)); sy -= 22; }
+            if (buffs.GoldRush > 0f) Shadowed(new Rect(W - 420, sy, 400, 22), $"Gold Rush {buffs.GoldRush:0.0}s", smallR, new Color(1f, 0.8f, 0f));
 
-            // Copy aim hint at the mouse.
+            // Morph aim hint at the cursor.
             if (D.Copy == CopyPhase.Aiming)
             {
-                Vector2 m = Event.current.mousePosition;
-                string t = D.CopyTarget != Unity.Entities.Entity.Null ? "Release to COPY: " + D.CopyTargetName : "Move over an enemy...";
-                Shadowed(new Rect(m.x + 16, m.y - 10, 300, 22), t, small, new Color(1f, 0.5f, 0.6f));
+                // Next to the marked enemy (works for mouse, touch and gamepad aim alike), else at the pointer.
+                Vector2 m = new Vector2(GameInput.MousePos.x / scale, H - GameInput.MousePos.y / scale);
+                var em = D.Ecs.Em;
+                bool target = D.CopyTarget != Unity.Entities.Entity.Null && em.Exists(D.CopyTarget) && em.HasComponent<DiceMania.ECS.Pos>(D.CopyTarget);
+                if (target && D.Rig != null && D.Rig.Cam != null)
+                {
+                    var tp = em.GetComponentData<DiceMania.ECS.Pos>(D.CopyTarget).Value;
+                    var sp = D.Rig.Cam.WorldToScreenPoint(new Vector3(tp.x, 0f, tp.y));
+                    if (sp.z > 0f) m = new Vector2(sp.x / scale + 14f, (Screen.height - sp.y) / scale - 26f);
+                }
+                string t = target ? "Release to MORPH: " + D.CopyTargetName : "Move over an enemy...";
+                float tw = small.CalcSize(new GUIContent(t)).x + 6f;
+                float lx = m.x + 16f + tw > W - 12f ? m.x - 16f - tw : m.x + 16f; // flip to the left near the right edge
+                var lr = new Rect(Mathf.Max(8f, lx), Mathf.Clamp(m.y - 10f, 96f, H - 30f), tw, 22f);
+                // Never cover the die corner, the ability name above it or the rolls corner: lift the label above them.
+                var hud = new[] { new Rect(W - 220f, H - 210f, 220f, 210f), new Rect(W - 445f, H - 256f, 445f, 64f), new Rect(0f, H - 140f, 310f, 140f) };
+                foreach (var r in hud) if (lr.Overlaps(r)) lr.y = r.yMin - lr.height - 4f;
+                lr.y = Mathf.Max(96f, lr.y);
+                Shadowed(lr, t, small, new Color(1f, 0.5f, 0.75f));
             }
-            if (D.State == GameState.Playing && run.Wave == 1 && D.WaveElapsed < 12f && !MetaProgress.Data.SeenTutorial)
-                Shadowed(new Rect(0, H - 150, W, 24), "WASD move - weapons fire automatically - SPACE rolls your dice - ESC pause", labelC, new Color(1, 1, 1, 0.8f));
+            if (D.State == GameState.Playing && run.Wave == 1 && D.WaveElapsed < 14f && !MetaProgress.Data.SeenTutorial)
+                Shadowed(new Rect(0, H - 150, W, 24),
+                    "WASD move  -  SPACE (or click the die) rolls  -  click / tap uses the rolled ability  -  ESC pause", labelC, new Color(1, 1, 1, 0.85f));
+            DrawJoystick();
         }
 
-        void DrawDiceTray()
+        void DrawCross(Rect r, Color c)
         {
-            var run = D.Run;
-            int n = run.Dice.Count;
-            float size = 70, gap = 12;
-            float total = n * size + (n - 1) * gap;
-            float x0 = W / 2 - total / 2, y = H - size - 16;
-            bool anim = D.RollAnimTime > 0f;
-            var roll = D.LastRoll;
-            var trayM = GUI.matrix;
-            for (int d = 0; d < n; d++)
+            float t = r.width * 0.36f;
+            Fill(new Rect(r.x + (r.width - t) / 2, r.y, t, r.height), c);
+            Fill(new Rect(r.x, r.y + (r.height - t) / 2, r.width, t), c);
+        }
+
+        void DrawGlass(Vector2 c, float radius) => GUI.DrawTexture(new Rect(c.x - radius, c.y - radius, radius * 2, radius * 2), glass);
+
+        /// <summary>Bottom left, like the original: a glass quarter-circle with the rolls left.</summary>
+        void DrawRollsCorner(RunState run)
+        {
+            var c = new Vector2(-8, H + 8);
+            DrawGlass(c, 132);
+            float recharge = GameDatabase.Cfg("RollRechargeSeconds", 25);
+            if (recharge > 0 && run.RollsLeft < run.RollsPerWave)
+                UiDraw.Arc(c, 125, 132, 90f, 90f - 90f * Mathf.Clamp01(run.RollRechargeTimer / recharge), new Color(0.72f, 0.5f, 1f, 0.9f), scale);
+            var baseM = GUI.matrix;
+            float pop = 1f + 0.35f * D.RollPunch;
+            var pivot = new Vector3(50, H - 52, 0);
+            GUI.matrix = baseM * Matrix4x4.TRS(pivot, Quaternion.identity, new Vector3(pop, pop, 1f)) * Matrix4x4.Translate(-pivot);
+            Shadowed(new Rect(6, H - 100, 90, 90), run.RollsLeft.ToString(), huge, run.RollsLeft > 0 ? Color.white : new Color(1, 0.45f, 0.45f));
+            GUI.matrix = baseM;
+            Shadowed(new Rect(126, H - 32, 300, 22), "Dice Rolls remaining.", small, new Color(1, 1, 1, 0.9f));
+        }
+
+        /// <summary>
+        /// Bottom right, like the original: the 3D die in a glass circle with the six face rings fanned around it.
+        /// New: the ring around the die is the ability cooldown; the name above says what you rolled and how to use it.
+        /// </summary>
+        void DrawDieCorner(RunState run)
+        {
+            var corner = new Vector2(W + 8, H + 8);
+            DrawGlass(corner, 142);
+            var die0 = run.Dice.Count > 0 ? run.Dice[0] : null;
+            var a = D.Ability;
+            bool rolling = D.RollAnimTime > 0f;
+            int shownSlot = D.LastRoll != null && D.LastRoll.Rolls.Count > 0 ? D.LastRoll.Rolls[0].SlotIndex : -1;
+
+            if (die0 != null)
             {
-                var die = run.Dice[d];
-                var r = new Rect(x0 + d * (size + gap), y, size, size);
-                // Tumble: rattle while rolling; land: pop.
-                if (anim) r.position += new Vector2(Mathf.Sin(Time.unscaledTime * 55f + d) * 3f, Mathf.Cos(Time.unscaledTime * 47f + d * 2f) * 3f);
-                float pop = 1f + (anim ? 0f : 0.28f * D.RollPunch);
-                if (pop > 1.001f)
+                var old = GUI.color;
+                for (int s = 0; s < 6; s++)
                 {
-                    var pivot = new Vector3(r.center.x, r.center.y, 0f);
-                    GUI.matrix = trayM * Matrix4x4.TRS(pivot, Quaternion.identity, new Vector3(pop, pop, 1f)) * Matrix4x4.Translate(-pivot);
+                    float ang = (171f - s * 14.8f) * Mathf.Deg2Rad;
+                    var p = corner + new Vector2(Mathf.Cos(ang), -Mathf.Sin(ang)) * 187f;
+                    bool hot = !rolling && s == shownSlot;
+                    float sz = hot ? 36f * (1f + 0.3f * D.RollPunch) : 28f;
+                    var col = die0.Slots[s].Face.Color;
+                    var r = new Rect(p.x - sz / 2, p.y - sz / 2, sz, sz);
+                    if (hot) { GUI.color = new Color(col.r, col.g, col.b, 0.95f); GUI.DrawTexture(r, disc); }
+                    GUI.color = new Color(col.r, col.g, col.b, hot ? 1f : 0.85f);
+                    GUI.DrawTexture(r, ringTex);
+                    GUI.color = old;
+                    if (hot) Text(new Rect(p.x - 20, p.y - 11, 40, 22), (s + 1).ToString(), tinyCBold, Color.black);
                 }
-                else GUI.matrix = trayM;
-                FaceSlot shown;
-                if (anim) shown = die.Slots[(int)(Time.unscaledTime * 20f + d * 3) % 6];
-                else if (roll != null && d < roll.Rolls.Count) shown = die.Slots[roll.Rolls[d].SlotIndex];
-                else shown = null;
-                Fill(r, PanelLight);
-                if (shown != null)
-                {
-                    float pad = anim ? 6 + Mathf.Sin(Time.unscaledTime * 40f) * 3 : 4;
-                    Fill(new Rect(r.x + pad, r.y + pad, r.width - pad * 2, r.height - pad * 2), shown.Face.Color);
-                    Text(new Rect(r.x, r.y + 6, r.width, 30), shown.Face.Name, labelC, Color.black);
-                    if (!anim) Text(new Rect(r.x, r.y + 34, r.width, 30), "Lv " + shown.Level, small, Color.black);
-                }
-                else Text(r, "?", big, new Color(1, 1, 1, 0.5f));
             }
-            GUI.matrix = trayM;
-            if (roll != null && D.RollShowTime > 0f && !string.IsNullOrEmpty(roll.ComboText))
-                Shadowed(new Rect(0, y - 30, W, 26), roll.ComboText, labelC, new Color(1f, 0.85f, 0.25f));
+
+            // The die sits in the corner like the original's tile; extra dice (Gambler, Forge) wait left of the face fan.
+            var dieCenter = new Vector2(W - 66, H - 64);
+            const float dieSize = 112f;
+            Vector2 shake = a != null && a.DenyPulse > 0f ? new Vector2(Mathf.Sin(Time.unscaledTime * 70f) * 5f * a.DenyPulse, 0f) : Vector2.zero;
+            var dv = D.DiceCubes;
+            if (dv != null && dv.Count > 0 && dv.Texture != null)
+            {
+                var oldC = GUI.color;
+                if (a != null && !a.Ready) GUI.color = new Color(0.5f, 0.5f, 0.56f, 1f); // dimmed while it recharges
+                var c0 = dieCenter + shake;
+                GUI.DrawTextureWithTexCoords(new Rect(c0.x - dieSize * 0.5f, c0.y - dieSize * 0.5f, dieSize, dieSize), dv.Texture, dv.DieUv(0));
+                GUI.color = oldC;
+                for (int i = 1; i < dv.Count; i++)
+                {
+                    const float extra = 92f;
+                    var ci = new Vector2(W - 236 - (i - 1) * 84, H - 50);
+                    GUI.DrawTextureWithTexCoords(new Rect(ci.x - extra * 0.5f, ci.y - extra * 0.5f, extra, extra), dv.Texture, dv.DieUv(i));
+                }
+            }
+
+            // Cooldown ring around the die: fills back clockwise in the face colour, pulses when ready.
+            UiDraw.Arc(dieCenter + shake, 50f, 57f, 0f, 360f, new Color(0f, 0f, 0f, 0.45f), scale);
+            if (a != null)
+            {
+                var fc = a.Face.Color;
+                float pulse = a.ReadyPulse;
+                UiDraw.Arc(dieCenter + shake, 50f - pulse * 3f, 57f + pulse * 5f, 90f, 90f - 360f * (1f - a.CooldownFrac),
+                    new Color(fc.r, fc.g, fc.b, a.Ready ? 0.95f : 0.75f), scale);
+                if (!a.Ready)
+                    Shadowed(new Rect(dieCenter.x - 50 + shake.x, dieCenter.y - 18, 100, 36),
+                        a.CooldownLeft < 10f ? a.CooldownLeft.ToString("0.0") : Mathf.CeilToInt(a.CooldownLeft).ToString(), cooldownStyle, Color.white);
+                string uses = a.UsesLeft > 0 ? $"   x{a.UsesLeft}" : "";
+                Shadowed(new Rect(W - 440, H - 248, 420, 30), a.Face.Name.ToUpper() + (a.Level > 1 ? $"  Lv{a.Level}" : "") + uses, abilityStyle, fc);
+                string how = a.Face.Id == "copy" ? "hold on an enemy, release to morph"
+                    : !a.Ready ? "recharging..."
+                    : a.Face.Auto ? "click / tap  (hold to keep using)" : "click / tap to use";
+                Shadowed(new Rect(W - 440, H - 220, 420, 22), how, smallR, new Color(1, 1, 1, 0.72f));
+            }
+            else
+            {
+                string msg = rolling ? "rolling..." : run.RollsLeft > 0 ? "ROLL!  [SPACE] or click the die" : "no rolls left";
+                Shadowed(new Rect(W - 440, H - 236, 420, 26), msg, labelR, new Color(1, 1, 1, 0.85f));
+            }
+            if (D.LastRoll != null && D.RollShowTime > 0f && !string.IsNullOrEmpty(D.LastRoll.ComboText))
+                Shadowed(new Rect(W - 440, H - 276, 420, 26), D.LastRoll.ComboText, labelR, new Color(1f, 0.85f, 0.25f));
+        }
+
+        /// <summary>Touch: virtual joystick under the left thumb.</summary>
+        void DrawJoystick()
+        {
+            if (!GameInput.JoyActive) return;
+            var o = new Vector2(GameInput.JoyOrigin.x / scale, H - GameInput.JoyOrigin.y / scale);
+            var k = new Vector2(GameInput.JoyKnob.x / scale, H - GameInput.JoyKnob.y / scale);
+            float radius = GameInput.JoyRadiusFrac * H;
+            DrawGlass(o, radius);
+            var d = k - o;
+            if (d.magnitude > radius) d = d.normalized * radius;
+            UiDraw.Disc(o + d, radius * 0.42f, new Color(1f, 1f, 1f, 0.35f), scale);
         }
 
         // ================================================================== level up
@@ -550,26 +699,25 @@ namespace DiceMania.Game
 
         void DrawEnd(bool victory)
         {
+            // Like the original: the world stays visible behind a dark red tint, big "You Died!!", ReStart / Exit.
             var run = D.Run;
-            Fill(new Rect(0, 0, W, H), victory ? new Color(0.05f, 0.08f, 0.04f, 0.92f) : new Color(0.15f, 0.02f, 0.05f, 0.9f));
-            Shadowed(new Rect(0, 110, W, 80), victory ? "YOU BEAT THE HOUSE!" : "You Died!!", huge, victory ? new Color(1f, 0.9f, 0.4f) : Color.white);
+            Fill(new Rect(0, 0, W, H), victory ? new Color(0.04f, 0.08f, 0.03f, 0.7f) : new Color(0.16f, 0f, 0.04f, 0.55f));
+            Shadowed(new Rect(0, 150, W, 90), victory ? "You Beat The House!!" : "You Died!!", endTitle, victory ? new Color(1f, 0.9f, 0.4f) : Color.white);
             if (run != null)
             {
                 int mins = (int)(run.RunTime / 60f), secs = (int)(run.RunTime % 60f);
-                Text(new Rect(0, 220, W, 160),
-                    $"{run.Character.Name}\nWave {run.Wave}   Score {run.Score}   Kills {run.Kills}   Level {run.Level}\n" +
-                    $"Bosses {run.BossesKilled}   Time {mins}:{secs:00}   Damage taken {Mathf.RoundToInt(run.DamageTaken)}\n\n" +
-                    $"+{D.ChipsEarnedLastRun} chips  (total {MetaProgress.Data.Chips})",
-                    labelC, Color.white);
+                Shadowed(new Rect(0, 238, W, 60),
+                    $"Wave {run.Wave}   Score {run.Score}   Kills {run.Kills}   Time {mins}:{secs:00}\n+{D.ChipsEarnedLastRun} chips  (total {MetaProgress.Data.Chips})",
+                    labelC, new Color(1, 1, 1, 0.85f));
             }
-            float y = 420;
+            float y = 318;
             if (victory)
             {
-                if (Button(new Rect(W / 2 - 150, y, 300, 50), "Continue (Endless)", true, new Color(0.6f, 0.45f, 0.1f))) D.ContinueEndless();
-                y += 60;
+                if (Button(new Rect(W / 2 - 166, y, 332, 66), "Continue (Endless)", true, new Color(0.6f, 0.45f, 0.1f))) D.ContinueEndless();
+                y += 84;
             }
-            if (Button(new Rect(W / 2 - 150, y, 300, 50), "Play Again")) D.StartRun(run != null ? run.Character : null);
-            if (Button(new Rect(W / 2 - 150, y + 60, 300, 50), "Main Menu", true, new Color(0.3f, 0.3f, 0.45f))) D.QuitToMenu();
+            if (Button(new Rect(W / 2 - 166, y, 332, 70), "ReStart")) D.StartRun(run != null ? run.Character : null);
+            if (Button(new Rect(W / 2 - 166, y + 92, 332, 70), "Exit")) D.QuitToMenu();
         }
 
         // ================================================================== main menu
@@ -709,13 +857,13 @@ namespace DiceMania.Game
         {
             Text(new Rect(0, 160, W, 30), "HOW TO PLAY", big);
             string t =
-                "<b>Move</b>  WASD / arrows.  Your weapons fire automatically at nearby enemies.\n" +
-                "<b>Roll</b>  SPACE rolls all your dice. Each wave gives you a stack of rolls (they slowly recharge).\n" +
-                "  The rolled face fires instantly:  Bolt (homing missiles), Copy, Mend (heal ring), Twin (clone),\n" +
-                "  Devour (dome that eats enemies AND bullets, costs HP), Reroll (+rolls, slow time) ... and more to unlock.\n" +
-                "<b>Copy</b>  Rolling Copy gives a charge. HOLD left mouse to slow time and target an enemy, RELEASE to fire\n" +
-                "  a slow-motion shot. It consumes the enemy and you BECOME it for 15s - its attacks, speed and body.\n" +
-                "  Enemies of that type stop shooting at you while you're disguised. Upgrade Copy to copy elites and bosses.\n" +
+                "<b>Move</b>  WASD / arrows (touch: left thumb).  Your weapons fire automatically at nearby enemies.\n" +
+                "<b>Roll</b>  SPACE (or click / tap the die) rolls. Each wave gives you a stack of rolls (they slowly recharge).\n" +
+                "<b>Use</b>  The rolled face is your ability until you roll again - CLICK / TAP to use it, then wait for its cooldown\n" +
+                "  (the ring around the die). 1 Bullet (missile at the cursor, hold to keep firing), 2 Duplicate (clones),\n" +
+                "  3 Melee (slash, hold to keep swinging), 4 Heal (ring), 5 Devour (dome that eats enemies AND bullets, costs HP),\n" +
+                "  6 Refresh (refill rolls, one use) - or Morph on 6: HOLD on an enemy, RELEASE to fire a slow-motion shot and\n" +
+                "  BECOME it for 15s. Enemies of that type stop shooting at you. More faces unlock in the Forge.\n" +
                 "<b>Combos</b>  Two dice on the same face = DOUBLES (x1.75). Three = JACKPOT. Two pip-1s = SNAKE EYES (+2 levels, costs HP).\n" +
                 "  Rolling 3 rising pips in a row (e.g. 2-3-4) = STRAIGHT (+1 roll).\n" +
                 "<b>Level up</b>  Collect gems. Pick 1 of 3 cards (spend a roll to reroll them). Max a weapon + own its passive = EVOLUTION.\n" +

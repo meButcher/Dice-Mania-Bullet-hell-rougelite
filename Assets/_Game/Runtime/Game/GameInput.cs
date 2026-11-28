@@ -17,6 +17,13 @@ namespace DiceMania.Game
         public static bool PadAiming;
         public static Vector2 PadAim;
 
+        // Touch: a touch that starts on the left 40% of the screen is a virtual joystick; any other touch aims and
+        // "clicks" at that spot (tapping a dice circle rolls).
+        public static bool JoyActive;
+        public static Vector2 JoyOrigin, JoyKnob;
+        public const float JoyRadiusFrac = 0.11f; // of screen height
+        static int joyId = -1, aimId = -1;
+
         /// <summary>
         /// Automated input (play-mode smoke tests, attract mode). When set it replaces the devices: edge flags are
         /// cleared every frame and the callback writes Move / MousePos / Roll / Lmb* itself.
@@ -86,6 +93,43 @@ namespace DiceMania.Game
                     LmbHeld |= g.rightTrigger.isPressed;
                     LmbUp |= g.rightTrigger.wasReleasedThisFrame;
                 }
+            }
+
+            var ts = Touchscreen.current;
+            if (ts != null)
+            {
+                bool joySeen = false, aimSeen = false;
+                foreach (var t in ts.touches)
+                {
+                    bool pressed = t.press.isPressed, released = t.press.wasReleasedThisFrame;
+                    if (!pressed && !released) continue;
+                    int id = t.touchId.ReadValue();
+                    Vector2 pos = t.position.ReadValue();
+                    if (t.press.wasPressedThisFrame)
+                    {
+                        if (joyId < 0 && pos.x < Screen.width * 0.4f && !GameDirector.IsOverRollButton(pos)) { joyId = id; JoyOrigin = pos; }
+                        else if (aimId < 0 && id != joyId) { aimId = id; LmbDown = true; }
+                    }
+                    if (id == joyId)
+                    {
+                        joySeen = pressed;
+                        JoyKnob = pos;
+                        Vector2 d = (pos - JoyOrigin) / (Screen.height * JoyRadiusFrac);
+                        if (d.sqrMagnitude > 1f) d.Normalize();
+                        if (pressed && d.sqrMagnitude > 0.02f) Move = d;
+                        if (!pressed) joyId = -1;
+                    }
+                    else if (id == aimId)
+                    {
+                        aimSeen = pressed;
+                        MousePos = pos;
+                        if (pressed) LmbHeld = true;
+                        else { LmbUp = true; aimId = -1; }
+                    }
+                }
+                if (!joySeen) joyId = -1;
+                if (!aimSeen && aimId >= 0 && !LmbUp) aimId = -1;
+                JoyActive = joyId >= 0;
             }
 #else
             Move = Vector2.zero;

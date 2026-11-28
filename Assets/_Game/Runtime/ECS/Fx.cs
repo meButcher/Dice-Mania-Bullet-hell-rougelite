@@ -159,6 +159,52 @@ namespace DiceMania.ECS
             Emit(ecb, prefab, pos, d * speed, p, v);
         }
 
+        /// <summary>
+        /// Melee swing: an arc of glowing streaks that sweeps across the swing (alternating direction), a white-hot inner
+        /// edge, a flash in front and sparks flying off the tip.
+        /// </summary>
+        public static void Slash(EntityCommandBuffer ecb, Entity prefab, float2 c, float2 dir, float radius, float4 color, bool flip,
+            ref Random rng)
+        {
+            float baseA = SpawnUtil.Angle(dir);
+            float sign = flip ? -1f : 1f;
+            const int n = 16;
+            const float half = 72f;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)(n - 1);
+                float bulge = math.sin(t * math.PI);
+                float a = baseA + sign * math.lerp(-half, half, t);
+                float2 radial = SpawnUtil.Dir(a);
+                float r = radius * (0.78f + 0.14f * bulge); // the blade traces the reach of the hit
+                float tangent = a + sign * 90f;
+                float len = radius * 0.46f * (0.55f + 0.6f * bulge);
+                float delay = t * 0.06f;
+                // Three layers per segment: a soft wide wake (the crescent's body), the coloured blade, a white-hot edge.
+                var p = new Particle
+                {
+                    Life = 0.2f, MaxLife = 0.2f, BaseScale = new float3(len, 1f, 0.32f + 0.7f * bulge), Freeze = delay, Alpha0 = 1f,
+                    Flags = PFlags.Fade | PFlags.Hidden,
+                };
+                var v = new Visual { Mesh = (byte)ShapeId.Streak, Scale = float3.zero, Y = 0.6f, RotY = -math.radians(tangent), Color = color };
+                var wake = p;
+                wake.BaseScale = new float3(len * 1.1f, 1f, 0.5f + 1.1f * bulge);
+                wake.Alpha0 = 0.45f;
+                var wv = v;
+                wv.Color = new float4(color.xyz, 0.45f);
+                Emit(ecb, prefab, c + radial * (r - radius * 0.12f), float2.zero, wake, wv);
+                Emit(ecb, prefab, c + radial * r, float2.zero, p, v);
+                var core = p;
+                core.BaseScale = new float3(len * 0.85f, 1f, 0.12f + 0.24f * bulge);
+                var cv = v;
+                cv.Color = new float4(1f, 1f, 1f, 1f);
+                Emit(ecb, prefab, c + radial * (r + 0.05f), float2.zero, core, cv);
+            }
+            Glow(ecb, prefab, c + dir * radius * 0.55f, 0.6f, radius * 1.5f, new float4(color.xyz, 0.7f), 0.12f, 1.2f);
+            float2 tip = SpawnUtil.Dir(baseA + sign * half);
+            Sparks(ecb, prefab, c + tip * radius * 0.8f, 0.6f, SpawnUtil.Dir(baseA + sign * (half + 90f)), 70f, 4, 6f, 12f, 0.35f, color, 0.18f, ref rng);
+        }
+
         /// <summary>A splat on the floor that stays for a while ("the fight leaves a mess").</summary>
         public static void Splat(EntityCommandBuffer ecb, Entity prefab, float2 pos, float size, float4 color, float life, ref Random rng)
         {

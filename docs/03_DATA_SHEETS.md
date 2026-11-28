@@ -1,12 +1,23 @@
 # Design Spreadsheet (the game's single source of truth)
 
-All abilities, upgrades, enemies, waves and stats are in **`Assets/_Game/Resources/Data/*.csv`**.
-Each CSV is one "sheet". Open them in Excel, Google Sheets (File → Import), LibreOffice or any text editor.
-The game reads them at startup, so nothing is hard-coded.
+**The spreadsheet is [`DiceMania_Data.xlsx`](../DiceMania_Data.xlsx)** in the project folder: one Excel workbook with a
+README tab and one tab per sheet below (frozen headers, filters, colour-coded tabs). In Unity: `Dice Mania → Data → Open Spreadsheet`.
+
+The game itself reads the same data as CSV files in **`Assets/_Game/Resources/Data/*.csv`** (one per tab), so nothing is hard-coded.
+While the Unity editor is open the workbook and the CSVs stay in sync **both ways**:
+
+- **Save the workbook** (Excel, LibreOffice, or Google Sheets → Download .xlsx) → a moment later the changed tabs are written to their
+  CSVs; if the game is running in Play mode it reloads them on the spot.
+- **A CSV changes** (a code change, `git pull`, a text editor) → the workbook is rewritten from the CSVs (close it in Excel first; Unity
+  says so in the Console if it is locked).
+- **Both edited the same tab** → neither is overwritten; the Console names the tab and auto-sync pauses until you pick
+  `Dice Mania → Data → Spreadsheet: Import (spreadsheet wins)` or `Spreadsheet: Export (CSVs win)`.
+- Command line: `-executeMethod DiceMania.EditorTools.DataWorkbook.ImportBatch` / `.ExportBatch`. An EditMode test fails if the
+  committed workbook and CSVs ever disagree.
 
 **Workflow**
-1. Edit a sheet and save it as CSV (comma or semicolon separated, UTF-8 both work).
-2. In the Unity Editor press **F5 during Play** to hot-reload, or just press Play again.
+1. Edit a tab in `DiceMania_Data.xlsx` and save (or edit a CSV directly: comma or semicolon separated, UTF-8 both work).
+2. In Play mode the game reloads by itself after a spreadsheet save; **F5 during Play** reloads by hand.
 3. `Dice Mania → Data → Validate Sheets` lists typos (unknown ids, non-numbers, missing columns). The main menu also shows a warning count.
 4. Rows starting with `#` are ignored (use them for notes). Column order doesn't matter; column **names** do.
 
@@ -27,17 +38,27 @@ The game reads them at startup, so nothing is hard-coded.
 ## Column reference
 
 ### Faces.csv
-Level N value = `Value + ValuePerLevel × (N−1)` (same for Count / Radius / Duration). `Count` rounds down.
-Description placeholders: `{value} {count} {radius} {duration} {hpcost}`.
+The face you roll becomes your **ability**: click / tap to use it (aimed at the cursor or touch), then it recharges.
+Level N value = `Value + ValuePerLevel × (N−1)` (same for Count / Radius / Duration / Cooldown). `Count` rounds down.
+Description placeholders: `{value} {count} {radius} {duration} {hpcost} {cooldown}`.
+
+| Column | Meaning |
+|---|---|
+| `Cooldown` / `CooldownPerLevel` | Seconds between uses (per-level change, usually negative). 0 = no cooldown |
+| `Uses` | How many uses before the ability is spent (0 = unlimited until the next roll). Refresh / Magnet / Gold Rush are 1 |
+| `Auto` | 1 = keeps using it while the button is held (Bullet, Melee); 0 = one use per click |
+
+Default die (Characters → `Dice`): **1 Bullet · 2 Duplicate · 3 Melee · 4 Heal · 5 Devour · 6 Refresh** (the Mimic has Morph on 6).
 
 | Face | Value | Count | Radius | Duration |
 |---|---|---|---|---|
-| bolt | missile damage | missiles | – | – |
-| copy | damage multiplier for copied attacks | Copy charges gained | target snap radius around the cursor | seconds you stay transformed |
-| mend | HP healed per second | – | ring radius | seconds |
-| twin | clone shot damage | clones | – | seconds |
+| bolt (Bullet) | missile damage | missiles per click | – | – |
+| melee (Melee) | slash damage | – | reach of the slash arc | – |
+| copy (Morph) | damage multiplier for copied attacks | – | target snap radius around the cursor | seconds you stay transformed |
+| mend (Heal) | HP healed per second | – | ring radius | seconds |
+| twin (Duplicate) | clone shot damage | clones | – | seconds |
 | devour | damage per 0.25s tick (+ eats bullets) | – | max dome radius | seconds (`HpCost` = HP paid) |
-| reroll | – | roll charges gained | – | slow-mo seconds |
+| reroll (Refresh) | – | extra rolls on top of the refill (0 = refill to full) | – | slow-mo seconds |
 | meteor | damage | meteors | blast radius | – |
 | frost | damage | – | radius | freeze seconds |
 | aegis | aura damage | – | aura radius | invulnerable seconds |

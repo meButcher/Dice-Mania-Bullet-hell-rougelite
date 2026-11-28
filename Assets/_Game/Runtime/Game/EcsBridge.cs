@@ -139,14 +139,52 @@ namespace DiceMania.Game
         /// <summary>Hides the hero's gun right away (death); the WeaponSystem keeps it hidden afterwards.</summary>
         public void HideGun()
         {
+            ForGun((ref PlayerGun g, ref Visual v) => v.Scale = float3.zero);
+        }
+
+        delegate void GunAction(ref PlayerGun gun, ref Visual vis);
+
+        void ForGun(GunAction action)
+        {
             var q = Em.CreateEntityQuery(typeof(PlayerGun), typeof(Visual));
             using (var ents = q.ToEntityArray(Allocator.Temp))
                 foreach (var e in ents)
                 {
+                    var g = Em.GetComponentData<PlayerGun>(e);
                     var v = Em.GetComponentData<Visual>(e);
-                    v.Scale = float3.zero;
+                    action(ref g, ref v);
+                    Em.SetComponentData(e, g);
                     Em.SetComponentData(e, v);
                 }
+        }
+
+        /// <summary>The cube beside the hero shows the current ability: its colour, dim while recharging, flash when ready.</summary>
+        public void SetGunStyle(float4 color, float flash)
+        {
+            ForGun((ref PlayerGun g, ref Visual v) => { v.Color = color; v.Flash = math.max(v.Flash, flash); });
+        }
+
+        /// <summary>Kick the hero's gun back along <paramref name="dir"/> (managed abilities like Bullet / Melee).</summary>
+        public void KickGun(float2 dir)
+        {
+            ForGun((ref PlayerGun g, ref Visual v) => { g.Dir = dir; g.Kick = 1f; });
+        }
+
+        public void AddRecoil(float2 impulse)
+        {
+            if (Player == Entity.Null) return;
+            var pd = Em.GetComponentData<PlayerData>(Player);
+            pd.Recoil += impulse;
+            Em.SetComponentData(Player, pd);
+        }
+
+        public float2 AimDir => Player != Entity.Null ? Em.GetComponentData<PlayerData>(Player).AimDir : new float2(1f, 0f);
+
+        public void SetShotScale(Entity shot, float3 scale)
+        {
+            var v = Em.GetComponentData<Visual>(shot);
+            v.Scale = scale;
+            Em.SetComponentData(shot, v);
         }
 
         public float2 PlayerPos => Player != Entity.Null && Em.Exists(Player) ? Em.GetComponentData<Pos>(Player).Value : float2.zero;

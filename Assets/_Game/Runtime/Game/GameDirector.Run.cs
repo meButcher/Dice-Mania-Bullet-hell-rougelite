@@ -45,6 +45,9 @@ namespace DiceMania.Game
             Run.CopyLevel = Mathf.Max(1, Run.MaxFaceLevel("copy"));
 
             Ecs.SpawnPlayer(ch, Run.MaxHP);
+            Ability = null;
+            LastRoll = null;
+            DiceCubes.Show(null);
             RefreshBuild();
             var h = Ecs.PlayerHealth; h.Value = h.Max; Ecs.SetPlayerHealth(h);
 
@@ -357,6 +360,7 @@ namespace DiceMania.Game
             Ecs.ClearRun();
             EndCopy();
             Run = null;
+            Ability = null;
             Floaters.Clear();
             Rig.Snap(Vector3.zero);
             SetState(GameState.MainMenu);

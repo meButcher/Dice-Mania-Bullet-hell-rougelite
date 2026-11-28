@@ -3,6 +3,7 @@
     "rootNamespace": "DiceMania.Tests",
     "references": [
         "DiceMania.Runtime",
+        "DiceMania.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

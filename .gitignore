@@ -142,3 +142,8 @@ crashlytics-build.properties
 # (only the perf-test package creates Assets/Resources; game data lives in Assets/_Game/Resources)
 /Assets/Resources.meta
 /Data/Plugins/lib_burst_generated*
+
+# Excel / LibreOffice lock + temp files next to the design spreadsheet (DiceMania_Data.xlsx)
+~$*.xlsx
+.~lock.*#
+*.xlsx.tmp

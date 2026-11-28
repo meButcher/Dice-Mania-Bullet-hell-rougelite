@@ -41,7 +41,8 @@ namespace DiceMania.EditorTools
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { ProjectSetup.ScenePath },
-                locationPathName = "Builds/Win/DiceMania.exe",
+                // CLI: -buildOut <path/DiceMania.exe> builds somewhere else (e.g. while the last build is still running).
+                locationPathName = Arg("-buildOut", "Builds/Win/DiceMania.exe"),
                 target = BuildTarget.StandaloneWindows64,
                 options = BuildOptions.None,
             };
@@ -59,6 +60,14 @@ namespace DiceMania.EditorTools
             var s = report.summary;
             Debug.Log($"[DiceMania] Windows build {s.result}: {s.totalSize / (1024f * 1024f):0.0} MB, {s.totalErrors} errors, {s.totalTime}");
             if (exitOnFinish) EditorApplication.Exit(s.result == BuildResult.Succeeded ? 0 : 1);
+        }
+
+        static string Arg(string name, string fallback)
+        {
+            var args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+                if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase)) return args[i + 1];
+            return fallback;
         }
 
         static void Build(bool exitOnFinish)

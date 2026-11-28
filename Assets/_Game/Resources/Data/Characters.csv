@@ -1,5 +1,5 @@
 Id,Name,Description,MaxHP,MoveSpeed,PickupRadius,StartWeapon,StartRolls,Dice,Might,Armor,Luck,Color,UnlockCost
-roller,The Roller,Balanced all-rounder with the classic die,100,7,2.5,pipshot,5,bolt|copy|mend|twin|devour|reroll,1,0,0.05,#3AA8FF,0
-gambler,The Gambler,Starts with two swingy dice but is fragile,70,7.5,3,cardfan,6,bolt|copy|mend|twin|devour|reroll;bolt|bolt|reroll|reroll|devour|copy,1,0,0.15,#3AFFC8,150
-bulwark,The Bulwark,Slow tank with a damage aura and healing die,160,6,2,aura,4,mend|mend|devour|twin|bolt|reroll,0.9,3,0,#4A6BFF,200
-mimic,The Mimic,Copy specialist - two Copy faces,90,7.5,2.5,pipshot,5,copy|copy|bolt|mend|twin|reroll,1,0,0.05,#B86BFF,250
+roller,The Roller,Balanced all-rounder with the classic die,100,7,2.5,pipshot,5,bolt|twin|melee|mend|devour|reroll,1,0,0.05,#3AA8FF,0
+gambler,The Gambler,Starts with two swingy dice but is fragile,70,7.5,3,cardfan,6,bolt|twin|melee|mend|devour|reroll;bolt|bolt|reroll|reroll|devour|copy,1,0,0.15,#3AFFC8,150
+bulwark,The Bulwark,Slow tank with a damage aura and a second Heal on 6,160,6,2,aura,4,bolt|twin|melee|mend|devour|mend,0.9,3,0,#4A6BFF,200
+mimic,The Mimic,Morph specialist - rolls Morph on 6 instead of Refresh,90,7.5,2.5,pipshot,5,bolt|twin|melee|mend|devour|copy,1,0,0.05,#B86BFF,250

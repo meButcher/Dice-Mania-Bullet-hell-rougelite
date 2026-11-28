@@ -303,6 +303,9 @@ namespace DiceMania.ECS
                             Fx.Shockwave(ecb, pf.Particle, zp, 0.3f, 0.4f, zo.Radius * 1.4f, new float4(1f, 0.85f, 0.4f, 1f), 0.3f);
                             Fx.Sparkles(ecb, pf.Particle, zp, 10, 1f, new float4(1f, 0.85f, 0.4f, 1f), ref rng);
                             break;
+                        case ZoneVfx.Slash:
+                            Fx.Slash(ecb, pf.Particle, zp, zo.Dir, zo.Radius, new float4(zo.Color.xyz, 1f), zo.VfxFlip != 0, ref rng);
+                            break;
                     }
                 }
                 if ((zo.Flags & ZoneFlags.Grow) != 0) zo.Radius = math.min(zo.MaxRadius, zo.Radius + zo.GrowRate * dt);
@@ -323,6 +326,9 @@ namespace DiceMania.ECS
                     {
                         if ((zo.Flags & ZoneFlags.ConsumeEnemies) != 0 && fxBudget-- > 0)
                             Fx.Converge(ecb, pf.Particle, zp, zo.Radius, 6, 0.25f, new float4(zo.Color.xyz, 0.9f), ref rng);
+                        bool single = (zo.Flags & ZoneFlags.SingleTick) != 0;
+                        bool cone = (zo.Flags & ZoneFlags.Cone) != 0;
+                        int zoneHits = 0;
                         int2 c = CellOf(zp);
                         int zr = (int)math.ceil((zo.Radius + maxER) / Cell);
                         for (int dy = -zr; dy <= zr; dy++)
@@ -335,15 +341,38 @@ namespace DiceMania.ECS
                                 float rr = zo.Radius + eRad[j].Value;
                                 float2 d = ePos[j].Value - zp;
                                 if (math.lengthsq(d) >= rr * rr) continue;
+                                if (cone)
+                                {
+                                    // Melee arc: only what's in front (enemies hugging the hero always get hit).
+                                    float dl = math.length(d);
+                                    if (dl > eRad[j].Value + 0.3f && math.dot(d / dl, zo.Dir) < zo.ConeCos) continue;
+                                }
                                 if (zo.Damage > 0f)
                                 {
                                     dmgAcc[j] += zo.Damage;
                                     hpCur[j] -= zo.Damage;
                                     heal += zo.Damage * zo.Lifesteal;
                                 }
-                                if (zo.Knockback > 0f) knock[j] += SpawnUtil.SafeNormalize(d, new float2(1, 0)) * zo.Knockback;
+                                float2 nd = SpawnUtil.SafeNormalize(d, cone ? zo.Dir : new float2(1, 0));
+                                if (zo.Knockback > 0f) knock[j] += nd * zo.Knockback;
                                 if ((zo.Flags & ZoneFlags.Freeze) != 0) freeze[j] = math.max(freeze[j], zo.FreezeTime);
+                                zoneHits++;
+                                // One-shot zones (melee, explosions, meteors) spark on everything they hit.
+                                if (single && zo.Damage > 0f && sparkBudget > 0)
+                                {
+                                    sparkBudget -= 2;
+                                    Fx.Impact(ecb, pf.Particle, ePos[j].Value - nd * eRad[j].Value * 0.6f, nd,
+                                        math.lerp(new float4(zo.Color.xyz, 1f), new float4(1f), 0.4f), 2, ref rng);
+                                }
                             } while (grid.TryGetNextValue(out j, ref it));
+                        }
+                        if (cone && zoneHits > 0)
+                        {
+                            // A connecting swing: a few frozen frames, a jolt, a thud.
+                            ev.HitStop = math.max(ev.HitStop, 0.045f);
+                            ev.ShakeRequest = math.max(ev.ShakeRequest, 0.2f);
+                            ev.Rumble = math.max(ev.Rumble, 0.4f);
+                            sfx.Add(new SfxEvent { Id = Sfx.Hit });
                         }
                     }
                     if ((zo.Flags & ZoneFlags.SingleTick) != 0)

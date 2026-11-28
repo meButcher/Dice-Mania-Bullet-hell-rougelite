@@ -183,7 +183,8 @@ namespace DiceMania.ECS
 
     public static class ZoneFlags
     {
-        public const byte SingleTick = 1, ConsumeBullets = 2, Freeze = 4, Heal = 8, Grow = 16, Aura = 32, ConsumeEnemies = 64;
+        public const byte SingleTick = 1, ConsumeBullets = 2, Freeze = 4, Heal = 8, Grow = 16, Aura = 32, ConsumeEnemies = 64,
+            Cone = 128; // only hits enemies within ConeCos of Dir (melee)
     }
 
     public struct DamageZone : IComponentData
@@ -204,11 +205,14 @@ namespace DiceMania.ECS
         public float4 Color;
         public byte Vfx;            // ZoneVfx: effect spawned by CombatSystem when the zone goes off
         public byte VfxState;       // 0 = nothing yet, 1 = pre-effect running (meteor falling), 2 = done
+        public byte VfxFlip;        // mirror the effect (melee swings alternate direction)
+        public float2 Dir;          // ZoneFlags.Cone: facing
+        public float ConeCos;       // ZoneFlags.Cone: cos(half angle)
     }
 
     public static class ZoneVfx
     {
-        public const byte None = 0, Explosion = 1, Meteor = 2, Frost = 3, Devour = 4, Mend = 5, Aegis = 6;
+        public const byte None = 0, Explosion = 1, Meteor = 2, Frost = 3, Devour = 4, Mend = 5, Aegis = 6, Slash = 7;
     }
 
     public struct Orbiter : IComponentData { public float Angle; public float Distance; public float AngularSpeed; }

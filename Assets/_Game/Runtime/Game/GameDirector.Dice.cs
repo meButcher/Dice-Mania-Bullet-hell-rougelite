@@ -72,6 +72,9 @@ namespace DiceMania.Game
             RollAnimTime = GameDatabase.Cfg("RollAnimSeconds", 0.45f);
             Audio.Play(SfxPlayer.Id.Roll, 0.1f);
             RollPunch = 1f;
+            var slots = new List<int>();
+            foreach (var r in pendingRoll.Rolls) slots.Add(r.SlotIndex);
+            DiceCubes.BeginRoll(slots, RollAnimTime);
 
             // Anticipation: pull energy out of the air into the hero while the dice tumble ("charge" before the cast).
             float2 pp = Ecs.PlayerPos;
@@ -89,6 +92,7 @@ namespace DiceMania.Game
             RollShowTime = 2.5f;
             Run.RollsLeft += o.BonusRolls;
             RollPunch = 1f;
+            DiceCubes.Land();
 
             // Burst: the charge releases in the colour of every rolled face.
             float2 pp = Ecs.PlayerPos;
@@ -115,33 +119,41 @@ namespace DiceMania.Game
                 h.Value = Mathf.Max(1f, h.Value - h.Max * GameDatabase.Cfg("SnakeEyesHpCost", 0.15f));
                 Ecs.SetPlayerHealth(h);
             }
-            if (!string.IsNullOrEmpty(o.ComboText))
-                ShowBanner(o.ComboText, new Color(1f, 0.85f, 0.25f), 1.6f);
-
-            foreach (var a in o.Activations)
-            {
-                float power = a.Power * Run.FacePower;
-                ActivateFace(a.Face, a.Level, power, a.Jackpot);
-                if (UnityEngine.Random.value < Run.EchoChance)
-                {
-                    ActivateFace(a.Face, a.Level, power, false);
-                    ShowBanner("ECHO! " + a.Face.Name, a.Face.Color, 1f);
-                }
-            }
+            // The rolled face becomes the current ability: click / tap to use it, with a cooldown.
+            SetAbility(o);
         }
 
         // ================================================================== faces
 
         static float4 F4(Color c, float a) => new float4(c.r, c.g, c.b, a);
 
-        /// <summary>Test / debug hook: fire a face's effect as if it was rolled.</summary>
+        /// <summary>Test / debug hook: fire a face's effect as if it was used (aimed at the nearest enemy).</summary>
         public void DebugActivateFace(string faceId, int level = 3)
         {
             var f = GameDatabase.Face(faceId);
-            if (f != null && Run != null && Ecs.Player != Entity.Null) ActivateFace(f, level, 1f, false);
+            if (f == null || Run == null || Ecs.Player == Entity.Null) return;
+            float2 pp = Ecs.PlayerPos, aim = pp + new float2(4f, 0f);
+            float bd = float.MaxValue;
+            using (var ep = Ecs.EnemyPositions(Allocator.Temp))
+                for (int i = 0; i < ep.Length; i++)
+                {
+                    float d = math.distancesq(ep[i].Value, pp);
+                    if (d < bd) { bd = d; aim = ep[i].Value; }
+                }
+            ActivateFace(f, level, 1f, false, aim);
         }
 
-        void ActivateFace(FaceDef f, int level, float power, bool jackpot)
+        /// <summary>Test / debug hook: make a face the current ability, as if it had just been rolled.</summary>
+        public void DebugSetAbility(string faceId, int level = 1)
+        {
+            var f = GameDatabase.Face(faceId);
+            if (f == null || Run == null) return;
+            var o = new RollOutcome();
+            o.Activations.Add(new FaceActivation { Face = f, Level = level, Matches = 1, Power = 1f });
+            SetAbility(o);
+        }
+
+        void ActivateFace(FaceDef f, int level, float power, bool jackpot, float2 aim)
         {
             float2 pp = Ecs.PlayerPos;
             float dur = f.DurationAt(level) * Run.Duration;
@@ -150,37 +162,17 @@ namespace DiceMania.Game
             int count = Mathf.Max(0, f.CountAt(level));
             if (jackpot) { count = Mathf.CeilToInt(count * 1.5f); radius *= 1.3f; }
 
-            Floaters.Add(new FloatingText { World = new Vector3(pp.x, 2.2f, pp.y), Text = f.Name.ToUpper(), Color = f.Color, Size = 1.4f });
-
             switch (f.Id)
             {
                 case "bolt":
-                {
-                    float dmg = value * Run.Might;
-                    int n = Mathf.Max(1, count);
-                    for (int i = 0; i < n; i++)
-                    {
-                        float a = i * 360f / n + UnityEngine.Random.Range(-10f, 10f);
-                        float2 d = SpawnUtil.Dir(a);
-                        Ecs.SpawnPlayerShot(pp + d * 0.6f, d, new Projectile
-                        {
-                            Kind = ProjKind.Normal, Damage = dmg, Life = 3f, Pierce = jackpot ? 2 : 0, Knockback = 1f,
-                            Speed = 15f * Run.ProjectileSpeed, Homing = 1, TurnRate = 7f,
-                        }, ShapeId.Diamond, 0.5f, F4(f.Color, 0.9f), halo: true);
-                    }
-                    Audio.Play(SfxPlayer.Id.Shoot, 0.01f);
+                    FireBullet(pp, aim, value * Run.Might, count, jackpot);
                     break;
-                }
+                case "melee":
+                    Slash(pp, aim, value * Run.Might, radius, f.Color);
+                    break;
                 case "copy":
-                {
-                    Run.CopyCharges += Mathf.Max(1, count);
-                    Run.CopyLevel = Mathf.Max(Run.CopyLevel, level);
-                    ShowBanner("COPY READY - hold LMB on an enemy", f.Color, 2f);
-                    var cc = F4(f.Color, 1f);
-                    Ecs.Fx((Unity.Entities.EntityCommandBuffer ecb, Unity.Entities.Entity pf, ref Unity.Mathematics.Random r) =>
-                        Fx.Sparkles(ecb, pf, pp, 10, 1f, cc, ref r));
+                    // Morph is used by holding on an enemy and releasing (see UpdateCopy).
                     break;
-                }
                 case "mend":
                 {
                     Ecs.SpawnZone(pp, new DamageZone
@@ -224,7 +216,9 @@ namespace DiceMania.Game
                 }
                 case "reroll":
                 {
-                    Run.RollsLeft += Mathf.Max(1, count);
+                    // Refresh: the roll count is refilled to full (Count = extra rolls on top, for upgraded faces).
+                    Run.RollsLeft = Mathf.Max(Run.RollsLeft, Run.RollsPerWave) + count;
+                    Run.RollRechargeTimer = 0f;
                     slowTimer = Mathf.Max(slowTimer, dur);
                     // Time ripple: a slow ring washing over the screen.
                     var cc = F4(f.Color, 1f);
@@ -239,13 +233,17 @@ namespace DiceMania.Game
                 }
                 case "meteor":
                 {
-                    using (var ep = Ecs.EnemyPositions(Allocator.Temp))
+                    // Meteors land on enemies near the cursor (or around it if nobody is there).
+                    var near = new List<float2>();
+                    using (var all = Ecs.EnemyPositions(Allocator.Temp))
+                        for (int i = 0; i < all.Length; i++)
+                            if (math.distancesq(all[i].Value, aim) < 49f) near.Add(all[i].Value);
                     {
                         int n = Mathf.Max(1, count);
                         for (int i = 0; i < n; i++)
                         {
-                            float2 target = ep.Length > 0 ? ep[UnityEngine.Random.Range(0, ep.Length)].Value
-                                : pp + (float2)(UnityEngine.Random.insideUnitCircle * 8f);
+                            float2 target = near.Count > 0 ? near[UnityEngine.Random.Range(0, near.Count)]
+                                : aim + (float2)(UnityEngine.Random.insideUnitCircle * 3f);
                             Ecs.SpawnZone(target, new DamageZone
                             {
                                 Damage = value * Run.Might, Radius = radius, Life = 1.1f + i * 0.12f, Delay = 0.7f + i * 0.12f,
@@ -317,7 +315,8 @@ namespace DiceMania.Game
             switch (Copy)
             {
                 case CopyPhase.None:
-                    if (Run.CopyCharges > 0 && GameInput.LmbDown && RollAnimTime <= 0f)
+                    if (Ability != null && Ability.Face.Id == "copy" && Ability.Ready && GameInput.LmbDown && RollAnimTime <= 0f
+                        && !IsOverRollButton(GameInput.MousePos))
                     {
                         Copy = CopyPhase.Aiming;
                         copyTimeScale = GameDatabase.Cfg("CopyAimTimeScale", 0.3f);
@@ -408,7 +407,7 @@ namespace DiceMania.Game
 
         void FireCopyShot()
         {
-            Run.CopyCharges--;
+            StartAbilityCooldown();
             float2 pp = Ecs.PlayerPos;
             var tp = Ecs.Em.GetComponentData<Pos>(CopyTarget).Value;
             float2 d = SpawnUtil.SafeNormalize(tp - pp, new float2(1, 0));
@@ -481,7 +480,7 @@ namespace DiceMania.Game
         void OnCopyMiss()
         {
             if (Copy == CopyPhase.None) return;
-            Run.CopyCharges++;
+            if (Ability != null && Ability.Face.Id == "copy") Ability.CooldownLeft = 0f; // refund
             ShowBanner("Copy missed - charge refunded", new Color(1f, 0.6f, 0.6f), 1.5f);
             if (copyShot != Entity.Null && Ecs.Em.Exists(copyShot)) Ecs.Em.DestroyEntity(copyShot);
             EndCopy();
@@ -492,7 +491,7 @@ namespace DiceMania.Game
             if (Copy == CopyPhase.Flying && copyShot != Entity.Null && Ecs.Em.Exists(copyShot))
             {
                 Ecs.Em.DestroyEntity(copyShot);
-                Run.CopyCharges++;
+                if (Ability != null && Ability.Face.Id == "copy") Ability.CooldownLeft = 0f; // refund
             }
             EndCopy();
         }

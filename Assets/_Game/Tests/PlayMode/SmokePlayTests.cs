@@ -97,7 +97,7 @@ namespace DiceMania.Tests
             Assert.AreEqual(GameState.Playing, d.State);
             Capture("run_start");
 
-            int levelUps = 0, forgeVisits = 0, rolls = 0, copies = 0, maxEnemies = 0, frames = 0, copyState = 0;
+            int levelUps = 0, forgeVisits = 0, rolls = 0, copies = 0, maxEnemies = 0, frames = 0, copyState = 0, abilityUses = 0;
             float rollTimer = 1.5f, captureTimer = 2.5f, copyHold = 0f, maxFrame = 0f, frameSum = 0f;
             bool pauseTested = false;
             float start = Time.realtimeSinceStartup;
@@ -126,8 +126,10 @@ namespace DiceMania.Tests
                             rolls++;
                             rollTimer = 2.2f;
                         }
-                        if (copyState == 0 && run.CopyCharges > 0 && d.Copy == CopyPhase.None && d.RollAnimTime <= 0f)
+                        var ab = d.Ability;
+                        if (copyState == 0 && ab != null && ab.Face.Id == "copy" && ab.Ready && d.Copy == CopyPhase.None && d.RollAnimTime <= 0f)
                         {
+                            // Morph: hold on an enemy, release.
                             if (TryNearestEnemyScreen(d, out var sp))
                             {
                                 bot.Mouse = sp; bot.LmbDownNext = true; bot.LmbHeld = true;
@@ -139,6 +141,13 @@ namespace DiceMania.Tests
                             if (TryNearestEnemyScreen(d, out var sp)) bot.Mouse = sp;
                             copyHold -= rdt;
                             if (copyHold <= 0f) { bot.LmbHeld = false; bot.LmbUpNext = true; copyState = 0; copies++; }
+                        }
+                        else if (ab != null && ab.Face.Id != "copy" && ab.Ready && d.RollAnimTime <= 0f)
+                        {
+                            // Every other face: click on the nearest enemy.
+                            if (TryNearestEnemyScreen(d, out var sp)) bot.Mouse = sp;
+                            bot.LmbDownNext = true;
+                            abilityUses++;
                         }
                         if (!pauseTested && run.Wave == 1 && d.WaveElapsed > 6f)
                         {
@@ -174,13 +183,14 @@ namespace DiceMania.Tests
 
             var r = d.Run;
             Debug.Log($"[Smoke] wave {r.Wave} kills {r.Kills} level {r.Level} levelUps {levelUps} forge {forgeVisits} rolls {rolls} " +
-                      $"copies {copies} maxEnemies {maxEnemies} frames {frames} avgFrame {frameSum / Mathf.Max(1, frames) * 1000f:0.0}ms " +
+                      $"copies {copies} abilityUses {abilityUses} maxEnemies {maxEnemies} frames {frames} avgFrame {frameSum / Mathf.Max(1, frames) * 1000f:0.0}ms " +
                       $"maxFrame {maxFrame * 1000f:0}ms weapons {r.Weapons.Count} passives {r.Passives.Count} relics {r.Relics.Count}");
             Assert.Greater(r.Kills, 20, "the bot should kill enemies");
             Assert.GreaterOrEqual(r.Wave, 3, "the bot should clear waves");
             Assert.Greater(levelUps, 0, "level-ups should happen");
             Assert.Greater(forgeVisits, 0, "the Forge should open between waves");
             Assert.Greater(rolls, 0, "dice should be rolled");
+            Assert.Greater(abilityUses, 0, "rolled faces should be used by clicking");
             Assert.IsTrue(pauseTested, "pause should be tested");
 
             // Death -> Game Over -> menu.
@@ -287,7 +297,7 @@ namespace DiceMania.Tests
                 yield return null;
             }
 
-            string[] faces = { "bolt", "mend", "twin", "devour", "reroll", "meteor", "frost", "aegis", "goldrush", "magnet" };
+            string[] faces = { "bolt", "melee", "mend", "twin", "devour", "reroll", "meteor", "frost", "aegis", "goldrush", "magnet" };
             foreach (var id in faces)
             {
                 if (d.State == GameState.LevelUp) d.PickOffer(0);
@@ -307,6 +317,59 @@ namespace DiceMania.Tests
                 yield return WaitReal(1.2f);
             }
             Assert.AreEqual(GameState.Playing, d.State == GameState.LevelUp ? GameState.Playing : d.State);
+            d.QuitToMenu();
+        }
+
+        [UnityTest]
+        [Timeout(120000)]
+        public IEnumerator RolledFaceIsUsedByClickingWithCooldown()
+        {
+            var d = GameDirector.Instance;
+            var bot = new Bot { Still = true, Mouse = new Vector2(Screen.width * 0.5f, Screen.height * 0.6f) };
+            GameInput.Bot = bot.Apply;
+            d.StartRun(GameDatabase.Characters[0]);
+            yield return null;
+            Assert.IsNull(d.Ability, "a new run starts without an ability");
+
+            // Melee: click -> cooldown starts -> it comes back.
+            d.DebugSetAbility("melee", 1);
+            Assert.IsNotNull(d.Ability);
+            Assert.IsTrue(d.Ability.Ready);
+            bot.LmbDownNext = true;
+            yield return null;
+            yield return null;
+            Assert.IsFalse(d.Ability.Ready, "using the ability should start its cooldown");
+            Assert.Greater(d.Ability.CooldownLeft, 0f);
+            float t0 = Time.realtimeSinceStartup;
+            while (!d.Ability.Ready && Time.realtimeSinceStartup - t0 < 5f) yield return null;
+            Assert.IsTrue(d.Ability.Ready, "the cooldown should finish");
+
+            // Clicking during the cooldown does nothing but shake the ring.
+            d.DebugSetAbility("devour", 1);
+            bot.LmbDownNext = true;
+            yield return null;
+            yield return null;
+            float cd = d.Ability.CooldownLeft;
+            Assert.Greater(cd, 1f, "Devour has a long cooldown");
+            bot.LmbDownNext = true;
+            yield return null;
+            Assert.LessOrEqual(d.Ability.CooldownLeft, cd, "a click during the cooldown must not restart it");
+
+            // Refresh is a one-use face: it refills the roll count to full and is spent.
+            d.DebugSetAbility("reroll", 1);
+            d.Run.RollsLeft = 0;
+            bot.LmbDownNext = true;
+            yield return null;
+            yield return null;
+            Assert.IsNull(d.Ability, "Refresh is used up after one click");
+            Assert.GreaterOrEqual(d.Run.RollsLeft, d.Run.RollsPerWave, "Refresh refills the dice rolls");
+            Assert.Greater(d.Run.RollsLeft, 0);
+
+            // Rolling sets a new ability once the dice land.
+            bot.RollNext = true;
+            yield return WaitReal(1.2f);
+            Assert.IsNotNull(d.Ability, "the rolled face becomes the current ability");
+            Capture("ability_after_roll");
             d.QuitToMenu();
         }
 

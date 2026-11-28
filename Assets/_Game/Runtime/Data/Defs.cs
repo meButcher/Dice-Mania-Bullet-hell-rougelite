@@ -46,11 +46,17 @@ namespace DiceMania.Data
         public Color Color;
         public int MaxLevel, UnlockCost, ShopWeight;
         public float Value, ValuePerLevel, Count, CountPerLevel, Radius, RadiusPerLevel, Duration, DurationPerLevel, HpCost;
+        // Rolled face = current ability, used by clicking / tapping. Cooldown between uses; Uses > 0 = spent after N uses;
+        // Auto = holding the button keeps using it whenever the cooldown is ready.
+        public float Cooldown, CooldownPerLevel;
+        public int Uses;
+        public bool Auto;
 
         public float ValueAt(int l) => Lvl.At(Value, ValuePerLevel, l);
         public int CountAt(int l) => Lvl.AtInt(Count, CountPerLevel, l);
         public float RadiusAt(int l) => Lvl.At(Radius, RadiusPerLevel, l);
         public float DurationAt(int l) => Lvl.At(Duration, DurationPerLevel, l);
+        public float CooldownAt(int l) => Mathf.Max(0f, Lvl.At(Cooldown, CooldownPerLevel, l));
 
         public string Describe(int level)
         {
@@ -59,7 +65,8 @@ namespace DiceMania.Data
                 .Replace("{count}", CountAt(level).ToString())
                 .Replace("{radius}", RadiusAt(level).ToString("0.#"))
                 .Replace("{duration}", DurationAt(level).ToString("0.#"))
-                .Replace("{hpcost}", HpCost.ToString("0"));
+                .Replace("{hpcost}", HpCost.ToString("0"))
+                .Replace("{cooldown}", CooldownAt(level).ToString("0.##"));
         }
     }
 

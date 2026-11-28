@@ -29,6 +29,9 @@ namespace DiceMania.Data
         public static bool Loaded { get; private set; }
         public static int Version { get; private set; }
 
+        /// <summary>Editor: set when the design spreadsheet was imported during Play, so the running game reloads its data.</summary>
+        public static bool ReloadRequested;
+
         public static float Cfg(string key, float def)
         {
             if (Config.TryGetValue(key, out float v)) return v;
@@ -125,6 +128,10 @@ namespace DiceMania.Data
                     Radius = t.Float(r, "Radius"), RadiusPerLevel = t.Float(r, "RadiusPerLevel"),
                     Duration = t.Float(r, "Duration"), DurationPerLevel = t.Float(r, "DurationPerLevel"),
                     HpCost = t.Float(r, "HpCost"), UnlockCost = t.Int(r, "UnlockCost"), ShopWeight = t.Int(r, "ShopWeight", 5),
+                    Cooldown = t.HasColumn("Cooldown") ? t.Float(r, "Cooldown") : 1f,
+                    CooldownPerLevel = t.HasColumn("CooldownPerLevel") ? t.Float(r, "CooldownPerLevel") : 0f,
+                    Uses = t.HasColumn("Uses") ? t.Int(r, "Uses") : 0,
+                    Auto = t.HasColumn("Auto") && t.Int(r, "Auto") != 0,
                 });
             }
 

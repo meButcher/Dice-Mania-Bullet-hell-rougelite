@@ -190,11 +190,12 @@ namespace DiceMania.ECS
                 if (gunFired) { g.Dir = gunDir; g.Kick = 1f; }
                 else g.Dir = SpawnUtil.SafeNormalize(math.lerp(g.Dir, nearestDir, math.saturate(dt * 10f)), nearestDir);
                 g.Kick *= math.exp(-12f * dt);
-                gpos.ValueRW.Value = ppos + g.Dir * (0.68f - 0.25f * g.Kick);
+                // A small cube beside the hero (like the original), coloured by the current ability.
+                gpos.ValueRW.Value = ppos + g.Dir * (0.78f - 0.28f * g.Kick);
                 ref var v = ref gvis.ValueRW;
                 v.RotY = -math.atan2(g.Dir.y, g.Dir.x);
-                v.Y = 0.55f;
-                v.Scale = copied || dead ? float3.zero : new float3(0.5f * (1f - 0.25f * g.Kick), 0.2f * (1f + 0.4f * g.Kick), 0.2f * (1f + 0.4f * g.Kick));
+                v.Y = 0.62f;
+                v.Scale = copied || dead ? float3.zero : new float3(0.36f * (1f - 0.22f * g.Kick), 0.3f * (1f + 0.35f * g.Kick), 0.3f * (1f + 0.35f * g.Kick));
                 v.Flash = math.max(v.Flash, g.Kick * 0.9f);
             }
 
