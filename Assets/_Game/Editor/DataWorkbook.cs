@@ -105,22 +105,26 @@ namespace DiceMania.EditorTools
             var conflicts = new List<string>();
             var unknown = new List<string>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Tab names come from the file, so they never become paths: a tab is imported only when it names a CSV
+            // that already exists in the data folder, and that file's own name is used from here on.
+            var known = SheetNames();
             foreach (var sh in sheets)
             {
                 if (IsNotesTab(sh.Name)) continue;
-                string path = CsvPath(sh.Name);
-                if (!File.Exists(path)) { unknown.Add(sh.Name); continue; }
-                seen.Add(sh.Name);
+                string name = known.FirstOrDefault(n => string.Equals(n, sh.Name, StringComparison.OrdinalIgnoreCase));
+                if (name == null) { unknown.Add(sh.Name); continue; }
+                string path = CsvPath(name);
+                seen.Add(name);
                 string current = File.ReadAllText(path);
                 string next = SheetToCsv(sh, current.Contains("\r\n") ? "\r\n" : "\n");
                 if (next == current) continue;
-                if (!force && st != null && st.CsvHash.TryGetValue(sh.Name, out var h) && h != Hash(current))
+                if (!force && st != null && st.CsvHash.TryGetValue(name, out var h) && h != Hash(current))
                 {
-                    conflicts.Add(sh.Name); // the CSV was edited too since the last sync: don't overwrite it
+                    conflicts.Add(name); // the CSV was edited too since the last sync: don't overwrite it
                     continue;
                 }
                 File.WriteAllText(path, next, new UTF8Encoding(false));
-                changed.Add(sh.Name);
+                changed.Add(name);
             }
             var missing = SheetNames().Where(n => !seen.Contains(n)).ToList();
 

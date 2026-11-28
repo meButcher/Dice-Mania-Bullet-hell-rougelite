@@ -98,6 +98,22 @@ namespace DiceMania.Tests
         }
 
         [Test]
+        public void TabNamesNeverBecomePaths()
+        {
+            // Only tabs naming a CSV that already exists in the data folder are imported (a crafted workbook could
+            // otherwise name a tab "..\..\x" and overwrite files elsewhere).
+            var names = DataWorkbook.SheetNames();
+            Assert.IsNotEmpty(names);
+            foreach (var n in names)
+            {
+                Assert.AreEqual(Path.GetFileName(n), n, "sheet names are plain file names");
+                StringAssert.DoesNotContain("..", n);
+            }
+            CollectionAssert.DoesNotContain(names, "../Faces");
+            CollectionAssert.DoesNotContain(names, "..\\..\\Faces");
+        }
+
+        [Test]
         public void ProjectSpreadsheetMatchesTheCsvs()
         {
             if (!File.Exists(DataWorkbook.WorkbookPath)) Assert.Ignore(DataWorkbook.WorkbookFile + " not found");
